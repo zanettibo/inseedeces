@@ -1,12 +1,31 @@
 import os
 import hashlib
-from django.shortcuts import render
+from django.db.models import Sum
 from django.http import JsonResponse
+from django.shortcuts import render
+from django.core.cache import cache
+from django.views.decorators.http import require_http_methods
+from django.views.decorators.cache import cache_page
 from django.core.paginator import Paginator
-from django.db.models import Q, Sum
+from django.db.models import Q
 import requests
 from .models import Deces, ImportHistory
 from .tasks import process_insee_file
+
+def rate_limit(key_prefix, limit=60):
+    def decorator(view_func):
+        def wrapped_view(request, *args, **kwargs):
+            client_ip = request.META.get('HTTP_X_FORWARDED_FOR', request.META.get('REMOTE_ADDR'))
+            cache_key = f"{key_prefix}:{client_ip}"
+            requests = cache.get(cache_key, 0)
+            
+            if requests >= limit:
+                return JsonResponse({'error': 'Rate limit exceeded'}, status=429)
+            
+            cache.set(cache_key, requests + 1, 60)  # Reset after 60 seconds
+            return view_func(request, *args, **kwargs)
+        return wrapped_view
+    return decorator
 
 def parse_insee_date(date_str):
     date_str = str(date_str)
@@ -65,6 +84,8 @@ def import_data(request):
         'total_records': stats['total'] or 0
     })
 
+@rate_limit('import_status', limit=300)  # 8 imports × 30 updates/minute = 240 + marge
+@require_http_methods(['GET'])
 def import_status(request, import_id):
     try:
         import_history = ImportHistory.objects.get(id=import_id)
@@ -79,6 +100,9 @@ def import_status(request, import_id):
     except ImportHistory.DoesNotExist:
         return JsonResponse({'error': 'Import non trouvé'}, status=404)
 
+@rate_limit('import_stats', limit=30)
+@require_http_methods(['GET'])
+@cache_page(2)  # Cache for 2 seconds
 def import_stats(request):
     stats = ImportHistory.objects.filter(status__in=['completed', 'processing']).aggregate(
         processed=Sum('records_processed'),
