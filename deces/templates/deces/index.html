@@ -1,0 +1,31 @@
+{% extends 'deces/base.html' %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-8 text-center">
+        <h1 class="mb-4">Bienvenue sur INSEE Décès</h1>
+        <p class="lead mb-4">Cette application vous permet d'importer et de rechercher dans les données de décès de l'INSEE.</p>
+        
+        <div class="row">
+            <div class="col-md-6">
+                <div class="card mb-4">
+                    <div class="card-body">
+                        <h5 class="card-title">Importer des données</h5>
+                        <p class="card-text">Importez des fichiers ZIP de l'INSEE contenant des données de décès.</p>
+                        <a href="{% url 'import_data' %}" class="btn btn-primary">Importer</a>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="card mb-4">
+                    <div class="card-body">
+                        <h5 class="card-title">Rechercher</h5>
+                        <p class="card-text">Recherchez dans la base de données des décès.</p>
+                        <a href="{% url 'search' %}" class="btn btn-primary">Rechercher</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,222 @@
+{% extends 'deces/base.html' %}
+{% load deces_extras %}
+{% load humanize %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-8">
+        <div class="card mb-4">
+            <div class="card-body">
+                <h2 class="card-title mb-4">Importer des données</h2>
+                
+                <form id="import-form" method="post">
+                    {% csrf_token %}
+                    <div class="mb-3">
+                        <label for="url" class="form-label">URL du fichier ZIP INSEE</label>
+                        <input type="url" class="form-control" id="url" name="url" required
+                               placeholder="https://www.insee.fr/fr/statistiques/fichier/...">
+                        <div class="form-text">L'URL doit pointer vers un fichier ZIP contenant des données de décès de l'INSEE.</div>
+                    </div>
+                    <button type="submit" class="btn btn-primary" id="submit-btn">Importer</button>
+                </form>
+
+                <div id="error" class="mt-4 d-none">
+                    <div class="alert alert-danger">
+                        Une erreur est survenue : <span id="error-message"></span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        {% if imports %}
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="card-title mb-0">Historique des imports</h5>
+                <div class="text-muted" id="import-stats">
+                    <strong>Importé :</strong> {{ total_records_processed|intcomma }} / {{ total_records|intcomma }} enregistrements
+                </div>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead>
+                            <tr>
+                                <th style="width: 30%">Fichier ZIP</th>
+                                <th style="width: 20%">Fichier CSV</th>
+                                <th style="width: 10%">Statut</th>
+                                <th style="width: 20%">Progression</th>
+                                <th style="width: 20%">Total</th>
+                            </tr>
+                        </thead>
+                        <tbody id="imports-table-body">
+                            {% for import in imports %}
+                            <tr data-import-id="{{ import.id }}">
+                                <td>{{ import.zip_filename }}</td>
+                                <td>{{ import.csv_filename }}</td>
+                                <td>
+                                    <span class="status-badge badge {% if import.status == 'completed' %}bg-success{% elif import.status == 'failed' %}bg-danger{% elif import.status == 'processing' %}bg-primary{% else %}bg-secondary{% endif %}">
+                                        {{ import.get_status_display }}
+                                    </span>
+                                </td>
+                                <td>
+                                    <div class="progress position-relative" style="height: 24px;">
+                                        {% with percentage=import.records_processed|multiply:100|divide:import.total_records|default:0 %}
+                                        <div class="progress-bar progress-bar-striped {% if import.status == 'processing' %}progress-bar-animated{% endif %}" 
+                                             role="progressbar" 
+                                             style="width: {{ percentage }}%">
+                                        </div>
+                                        <span class="text-dark position-absolute w-100 text-center" 
+                                              style="z-index: 1; line-height: 24px; font-size: 14px;">
+                                            <strong>{{ percentage|floatformat:1 }}%</strong>
+                                        </span>
+                                        {% endwith %}
+                                    </div>
+                                </td>
+                                <td>{{ import.total_records|intcomma }}</td>
+                            </tr>
+                            {% if import.error_message %}
+                            <tr class="table-danger">
+                                <td colspan="4">
+                                    <small class="text-danger">{{ import.error_message }}</small>
+                                </td>
+                            </tr>
+                            {% endif %}
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<script>
+function updateImportStatus(importId) {
+    fetch(`/import/${importId}/status/`)
+        .then(response => response.json())
+        .then(data => {
+            const row = document.querySelector(`tr[data-import-id="${importId}"]`);
+            if (row) {
+                const statusBadge = row.querySelector('.status-badge');
+                const progressBar = row.querySelector('.progress-bar');
+                const currentFileCell = row.querySelector('.current-file');
+                
+                // Mettre à jour le statut
+                statusBadge.className = `status-badge badge ${
+                    data.status === 'completed' ? 'bg-success' :
+                    data.status === 'failed' ? 'bg-danger' :
+                    data.status === 'processing' ? 'bg-primary' : 'bg-secondary'
+                }`;
+                statusBadge.textContent = data.status_display;
+                
+                // Mettre à jour la progression
+                if (data.total_records > 0) {
+                    // Mettre à jour la barre de progression
+                    const progress = (data.records_processed / data.total_records) * 100;
+                    progressBar.style.width = `${progress}%`;
+                    progressBar.setAttribute('aria-valuemin', 0);
+                    progressBar.setAttribute('aria-valuemax', 100);
+                    progressBar.setAttribute('aria-valuenow', progress);
+                    const progressText = progressBar.parentElement.querySelector('span') || document.createElement('span');
+                    progressText.className = 'text-dark position-absolute w-100 text-center';
+                    progressText.style.zIndex = '1';
+                    progressText.innerHTML = `<strong>${progress.toFixed(1)}%</strong>`;
+                    if (!progressBar.parentElement.querySelector('span')) {
+                        progressBar.parentElement.appendChild(progressText);
+                    }
+
+                    // Mettre à jour le total
+                    const totalCell = row.querySelector('td:last-child');
+                    if (totalCell) {
+                        totalCell.textContent = new Intl.NumberFormat('fr-FR').format(data.total_records);
+                    }
+                }
+                
+
+                
+                // Continuer la mise à jour si toujours en cours
+                if (data.status === 'processing') {
+                    setTimeout(() => updateImportStatus(importId), 2000);
+                }
+            }
+        });
+}
+
+// Fonction pour mettre à jour les statistiques globales
+function updateImportStats() {
+    fetch('/import/stats/')
+        .then(response => response.json())
+        .then(data => {
+            const statsElement = document.querySelector('#import-stats');
+            if (statsElement) {
+                statsElement.innerHTML = `<strong>Importé :</strong> ${new Intl.NumberFormat('fr-FR').format(data.total_records_processed)} / ${new Intl.NumberFormat('fr-FR').format(data.total_records)} enregistrements`;
+            }
+        })
+        .catch(error => console.error('Erreur lors de la mise à jour des stats:', error));
+}
+
+// Vérifie s'il y a des imports actifs et met à jour les stats si nécessaire
+function checkForActiveImports() {
+    const processingImports = document.querySelectorAll('.progress-bar-animated');
+    if (processingImports.length > 0) {
+        updateImportStats();
+        setTimeout(checkForActiveImports, 2000);
+    }
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+    // Démarrer la vérification des imports actifs
+    checkForActiveImports();
+});
+
+document.getElementById('import-form').addEventListener('submit', function(e) {
+    e.preventDefault();
+    
+    // Démarrer la vérification des imports actifs
+    checkForActiveImports();
+
+    const form = this;
+    const error = document.getElementById('error');
+    const submitBtn = document.getElementById('submit-btn');
+    
+    // Reset display
+    error.classList.add('d-none');
+    submitBtn.disabled = true;
+    
+    fetch(form.action, {
+        method: 'POST',
+        body: new FormData(form),
+        headers: {
+            'X-CSRFToken': form.querySelector('[name=csrfmiddlewaretoken]').value
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            // Recharger la page pour voir le nouvel import
+            window.location.reload();
+        } else {
+            error.classList.remove('d-none');
+            document.getElementById('error-message').textContent = data.error;
+        }
+    })
+    .catch(err => {
+        error.classList.remove('d-none');
+        document.getElementById('error-message').textContent = err.message;
+    })
+    .finally(() => {
+        submitBtn.disabled = false;
+    });
+});
+
+// Démarrer le suivi des imports en cours
+document.querySelectorAll('tr[data-import-id]').forEach(row => {
+    const statusBadge = row.querySelector('.status-badge');
+    if (statusBadge.textContent.trim() === 'En cours') {
+        const importId = row.dataset.importId;
+        updateImportStatus(importId);
+    }
+});
+</script>
+{% endblock %}

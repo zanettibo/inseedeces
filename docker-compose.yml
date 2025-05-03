@@ -1,0 +1,59 @@
+version: '3.8'
+
+services:
+  db:
+    image: mariadb:10.11
+    environment:
+      MYSQL_ROOT_PASSWORD: rootpassword
+      MYSQL_DATABASE: insee_deces
+      MYSQL_USER: insee
+      MYSQL_PASSWORD: insee_password
+    volumes:
+      - db_data:/var/lib/mysql
+    ports:
+      - "3306:3306"
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+
+  migrate:
+    build: .
+    entrypoint: /usr/local/bin/docker-entrypoint-migrate.sh
+    command: echo "Migrations terminées"
+    environment:
+      - DATABASE_URL=mysql://insee:insee_password@db:3306/insee_deces
+    depends_on:
+      - db
+
+  web:
+    build: .
+    ports:
+      - "8000:8000"
+    environment:
+      - DATABASE_URL=mysql://insee:insee_password@db:3306/insee_deces
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - DEBUG=True
+      - ALLOWED_HOSTS=localhost,127.0.0.1,0.0.0.0
+    depends_on:
+      - db
+      - redis
+      - migrate
+
+  celery:
+    build: .
+    command: celery -A insee_deces worker --loglevel=info
+    environment:
+      - DATABASE_URL=mysql://insee:insee_password@db:3306/insee_deces
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - DEBUG=True
+      - ALLOWED_HOSTS=localhost,127.0.0.1,0.0.0.0
+    depends_on:
+      - web
+      - redis
+      - db
+      - migrate
+
+volumes:
+  db_data:

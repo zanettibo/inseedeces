@@ -1,0 +1,140 @@
+{% extends 'deces/base.html' %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-10">
+        <div class="card">
+            <div class="card-body">
+                <h2 class="card-title mb-4">Rechercher dans la base de données</h2>
+                
+                <form method="get" class="mb-4">
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label for="nom" class="form-label">Nom</label>
+                            <input type="text" name="nom" id="nom" class="form-control" value="{{ nom }}">
+                        </div>
+                        <div class="col-md-6">
+                            <label for="prenoms" class="form-label">Prénoms</label>
+                            <input type="text" name="prenoms" id="prenoms" class="form-control" value="{{ prenoms }}">
+                        </div>
+                        
+                        <div class="col-md-6">
+                            <label class="form-label">Sexe</label>
+                            <select name="sexe" class="form-select" id="sexe">
+                                <option value="">Tous</option>
+                                <option value="1" {% if sexe == '1' %}selected{% endif %}>Homme</option>
+                                <option value="2" {% if sexe == '2' %}selected{% endif %}>Femme</option>
+                            </select>
+                        </div>
+
+                        <div class="col-md-6">
+                            <label class="form-label">Date de naissance</label>
+                            <div class="row g-2">
+                                <div class="col-6">
+                                    <input type="date" name="date_naissance_debut" class="form-control" 
+                                           value="{{ date_naissance_debut }}" placeholder="Du">
+                                </div>
+                                <div class="col-6">
+                                    <input type="date" name="date_naissance_fin" class="form-control" 
+                                           value="{{ date_naissance_fin }}" placeholder="Au">
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="col-md-6">
+                            <label class="form-label">Date de décès</label>
+                            <div class="row g-2">
+                                <div class="col-6">
+                                    <input type="date" name="date_deces_debut" class="form-control" 
+                                           value="{{ date_deces_debut }}" placeholder="Du">
+                                </div>
+                                <div class="col-6">
+                                    <input type="date" name="date_deces_fin" class="form-control" 
+                                           value="{{ date_deces_fin }}" placeholder="Au">
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="col-12">
+                            <button type="submit" class="btn btn-primary">Rechercher</button>
+                            <a href="{% url 'search' %}" class="btn btn-outline-secondary">Réinitialiser</a>
+                        </div>
+                    </div>
+                </form>
+
+                {% if page_obj %}
+                    <div class="table-responsive">
+                        <table class="table table-striped">
+                            <thead>
+                                <tr>
+                                    <th>Nom</th>
+                                    <th>Prénoms</th>
+                                    <th>Date de naissance</th>
+                                    <th>Lieu de naissance</th>
+                                    <th>Date de décès</th>
+                                    <th>Lieu de décès</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for deces in page_obj %}
+                                <tr>
+                                    <td>{{ deces.nom }}</td>
+                                    <td>{{ deces.prenoms }}</td>
+                                    <td>{{ deces.date_naissance|date:"d/m/Y" }}</td>
+                                    <td>{{ deces.commune_naissance }}</td>
+                                    <td>{{ deces.date_deces|date:"d/m/Y" }}</td>
+                                    <td>{{ deces.lieu_deces }}</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+
+                    {% if page_obj.paginator.num_pages > 1 %}
+                    <nav aria-label="Pagination" class="mt-4">
+                        <ul class="pagination justify-content-center">
+                            {% if page_obj.has_previous %}
+                                <li class="page-item">
+                                    <a class="page-link" href="?nom={{ nom }}&prenoms={{ prenoms }}&sexe={{ sexe }}&date_naissance_debut={{ date_naissance_debut }}&date_naissance_fin={{ date_naissance_fin }}&date_deces_debut={{ date_deces_debut }}&date_deces_fin={{ date_deces_fin }}&page={{ page_obj.previous_page_number }}">Précédent</a>
+                                </li>
+                            {% endif %}
+
+                            {% for i in page_obj.paginator.page_range %}
+                                {% if page_obj.number == i %}
+                                    <li class="page-item active">
+                                        <span class="page-link">{{ i }}</span>
+                                    </li>
+                                {% elif i > page_obj.number|add:'-3' and i < page_obj.number|add:'3' %}
+                                    <li class="page-item">
+                                        <a class="page-link" href="?nom={{ nom }}&prenoms={{ prenoms }}&sexe={{ sexe }}&date_naissance_debut={{ date_naissance_debut }}&date_naissance_fin={{ date_naissance_fin }}&date_deces_debut={{ date_deces_debut }}&date_deces_fin={{ date_deces_fin }}&page={{ i }}">{{ i }}</a>
+                                    </li>
+                                {% endif %}
+                            {% endfor %}
+
+                            {% if page_obj.has_next %}
+                                <li class="page-item">
+                                    <a class="page-link" href="?nom={{ nom }}&prenoms={{ prenoms }}&sexe={{ sexe }}&date_naissance_debut={{ date_naissance_debut }}&date_naissance_fin={{ date_naissance_fin }}&date_deces_debut={{ date_deces_debut }}&date_deces_fin={{ date_deces_fin }}&page={{ page_obj.next_page_number }}">Suivant</a>
+                                </li>
+                            {% endif %}
+                        </ul>
+                    </nav>
+                    {% endif %}
+
+                    <p class="text-center mt-3">
+                        Page {{ page_obj.number }} sur {{ page_obj.paginator.num_pages }}
+                        ({{ page_obj.paginator.count }} résultat{{ page_obj.paginator.count|pluralize }})
+                    </p>
+                {% elif has_search_criteria %}
+                    <div class="alert alert-info">
+                        Aucun résultat trouvé pour les critères spécifiés.
+                    </div>
+                {% else %}
+                    <div class="alert alert-info">
+                        Veuillez saisir au moins un critère de recherche.
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
