@@ -100,7 +100,7 @@ def import_status(request, import_id):
     except ImportHistory.DoesNotExist:
         return JsonResponse({'error': 'Import non trouvé'}, status=404)
 
-@rate_limit('import_stats', limit=30)
+@rate_limit('import_stats', limit=100)
 @require_http_methods(['GET'])
 @cache_page(2)  # Cache for 2 seconds
 def import_stats(request):

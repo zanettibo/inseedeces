@@ -42,6 +42,7 @@ def parse_insee_date(date_str):
 def parse_row(row):
     """Parse une ligne du CSV et retourne un dictionnaire de données valides ou (None, raison) si la ligne est invalide."""
     try:
+
         # Traiter le champ nomprenom spécial (format: <NOM>*<PRENOM 1> [PRENOM 2] [PRENOM 3]/)        
         nom_complet = row.get('nomprenom', '')
         if not nom_complet or '*' not in nom_complet:
@@ -59,7 +60,7 @@ def parse_row(row):
         prenoms = prenoms.strip() or None
         
         # Vérifier et nettoyer les champs obligatoires
-        sexe = row.get('sexe', '').strip('"')
+        sexe = row.get('sexe', '')
         date_naissance = parse_insee_date(row.get('datenaiss'))
         date_deces = parse_insee_date(row.get('datedeces'))
         
@@ -74,11 +75,11 @@ def parse_row(row):
             return None, f'Date de décès invalide : {row.get("datedeces")}'
             
         # Nettoyer les autres champs
-        lieu_naissance = row.get('lieunaiss', '').strip('"')[:5]
-        commune_naissance = row.get('commnaiss', '').strip('"')
-        pays_naissance = row.get('paysnaiss', '').strip('"')
-        lieu_deces = row.get('lieudeces', '').strip('"')[:5]
-        acte_deces = row.get('actedeces', '').strip('"')[:10]
+        lieu_naissance = row.get('lieunaiss', '')
+        commune_naissance = row.get('commnaiss', '')
+        pays_naissance = row.get('paysnaiss', '')
+        lieu_deces = row.get('lieudeces', '')
+        acte_deces = row.get('actedeces', '')
 
         # Retourner le dictionnaire avec les données validées
         return {
@@ -109,15 +110,8 @@ def clean_previous_import(csv_filename, md5_hash):
 
 @shared_task(bind=True)
 def process_insee_file(self, zip_url, zip_filename):
-    logger.info(f'Démarrage de l\'import pour {zip_filename}')
+    logger.info(f'Démarrage du traitement pour {zip_filename}')
     
-    # Créer un enregistrement ImportHistory
-    import_history = ImportHistory.objects.create(
-        zip_url=zip_url,
-        zip_filename=zip_filename,
-        status='downloading'
-    )
-
     try:
         # Télécharger le fichier ZIP
         logger.info('Téléchargement du fichier ZIP')
@@ -138,10 +132,9 @@ def process_insee_file(self, zip_url, zip_filename):
             temp_zip.flush()
             logger.info('Fichier ZIP téléchargé avec succès')
 
-        # Extraire et traiter chaque fichier CSV du ZIP
+        # Extraire et traiter chaque fichier CSV
         with zipfile.ZipFile(temp_zip.name, 'r') as zip_ref:
             csv_files = [f for f in zip_ref.namelist() if f.endswith('.csv')]
-            logger.info(f'Fichiers CSV trouvés : {csv_files}')
             
             for csv_file in csv_files:
                 logger.info(f'Traitement du fichier {csv_file}')
@@ -149,82 +142,67 @@ def process_insee_file(self, zip_url, zip_filename):
                 # Calculer le MD5 du fichier CSV
                 with zip_ref.open(csv_file) as f:
                     md5_hash = hashlib.md5(f.read()).hexdigest()
-                    logger.info(f'MD5 du fichier : {md5_hash}')
                 
-                # Vérifier si ce fichier a déjà été importé
-                try:
-                    existing_import = ImportHistory.objects.filter(
-                        csv_filename=csv_file,
-                        md5_hash=md5_hash
-                    ).first()
-                    
-                    if existing_import:
-                        # Si l'import existe déjà, on l'ignore pour éviter les doublons
-                        status = 'terminé' if existing_import.status == 'completed' else 'en cours/incomplet'
-                        logger.warning(
-                            f'Le fichier {csv_file} (MD5: {md5_hash}) a déjà un import {status}. '
-                            f'Il sera ignoré pour éviter les doublons. Pour réessayer, supprimez d\'abord '
-                            f'l\'entrée ImportHistory et les données associées.'
-                        )
-                        continue
-                    else:
-                        # Créer une nouvelle entrée
-                        import_history.csv_filename = csv_file
-                        import_history.md5_hash = md5_hash
-                        import_history.save()
-                        
-                except Exception as e:
-                    logger.error(f'Erreur lors de la vérification des doublons : {str(e)}')
-                    # On continue avec le fichier suivant
+                # Vérifier si le fichier a déjà été traité
+                if ImportHistory.objects.filter(csv_filename=csv_file, md5_hash=md5_hash).exists():
+                    logger.info(f'Le fichier {csv_file} a déjà été traité')
                     continue
 
-                import_history.status = 'processing'
-                import_history.save()
+                # Créer un enregistrement ImportHistory pour ce CSV
+                import_history = ImportHistory.objects.create(
+                    zip_url=zip_url,
+                    zip_filename=zip_filename,
+                    csv_filename=csv_file,
+                    md5_hash=md5_hash,
+                    status='processing'
+                )
 
                 # Extraire et traiter le fichier CSV
-                with tempfile.NamedTemporaryFile(delete=False, suffix='.csv') as temp_csv:
-                    with zip_ref.open(csv_file) as source, open(temp_csv.name, 'wb') as target:
-                        shutil.copyfileobj(source, target)
-
-                    # Compter le nombre total de lignes
-                    total_records = sum(1 for line in open(temp_csv.name, encoding='utf-8'))
-                    total_records -= 1  # Exclure l'en-tête
-                    import_history.total_records = total_records
+                with zip_ref.open(csv_file) as f:
+                    df = pd.read_csv(f, sep=';', dtype=str)
+                    records = len(df)
+                    import_history.total_records = records
                     import_history.save()
-                    logger.info(f'Nombre total d\'enregistrements à traiter : {total_records}')
+                    logger.info(f'Nombre total d\'enregistrements à traiter : {records}')
 
-                    # Lire et traiter le CSV
                     records_processed = 0
                     error_count = 0
-                    with open(temp_csv.name, 'r', encoding='utf-8') as f:
-                        reader = csv.DictReader(f, delimiter=';')
-                        
-                        for i, row in enumerate(reader, 1):
-                            try:
-                                with transaction.atomic():
-                                    # Parser la ligne
-                                    parsed_data, error = parse_row(row)
-                                    if parsed_data is None:
-                                        error_count += 1
-                                        logger.warning(f'Ligne {i} ignorée : {error}\nDonnées : {row}')
-                                        continue
-
-                                    # Créer l'enregistrement
-                                    Deces.objects.create(**parsed_data
-                                    )
-                                    records_processed += 1
-                            except Exception as row_error:
+                    for index, row in df.iterrows():
+                        try:
+                            # Parser la ligne
+                            parsed_data, error = parse_row(row)
+                            if error:
                                 error_count += 1
-                                logger.error(f'Erreur ligne {i}: {str(row_error)}\nDonnées: {row}')
-                                if error_count > 100:
-                                    raise Exception(f'Trop d\'erreurs ({error_count}), import arrêté')
+                                logger.warning(f'Ligne {index+1} ignorée : {error}\nDonnées : {row}')
+                                continue
 
-                            if i % 1000 == 0:
-                                import_history.records_processed = records_processed
-                                import_history.save()
-                                logger.info(f'Progression : {records_processed}/{total_records} ({(records_processed/total_records*100):.1f}%)')
-                                # Force le commit de la transaction en cours
-                                transaction.commit()
+                            # Créer et sauvegarder l'enregistrement Deces
+                            deces = Deces(
+                                nom=parsed_data['nom'],
+                                prenoms=parsed_data['prenoms'],
+                                sexe=parsed_data['sexe'],
+                                date_naissance=parsed_data['date_naissance'],
+                                lieu_naissance=parsed_data['lieu_naissance'],
+                                commune_naissance=parsed_data['commune_naissance'],
+                                pays_naissance=parsed_data['pays_naissance'],
+                                date_deces=parsed_data['date_deces'],
+                                lieu_deces=parsed_data['lieu_deces'],
+                                acte_deces=parsed_data['acte_deces']
+                            )
+                            deces.save()
+                            records_processed += 1
+                        except Exception as row_error:
+                            error_count += 1
+                            logger.error(f'Erreur ligne {index+1}: {str(row_error)}\nDonnées: {row}')
+                            if error_count > 100:
+                                raise Exception(f'Trop d\'erreurs ({error_count}), import arrêté')
+
+                        if index % 1000 == 0:
+                            import_history.records_processed = records_processed
+                            import_history.save()
+                            logger.info(f'Progression : {records_processed}/{records} ({(records_processed/records*100):.1f}%)')
+                            # Force le commit de la transaction en cours
+                            transaction.commit()
 
                     # Nettoyer
                     os.unlink(temp_csv.name)
@@ -233,16 +211,24 @@ def process_insee_file(self, zip_url, zip_filename):
         # Nettoyer
         os.unlink(temp_zip.name)
         
-        if records_processed < total_records * 0.9:  # Si moins de 90% des enregistrements ont été traités
-            raise Exception(f'Import incomplet : seulement {records_processed}/{total_records} enregistrements traités')
-
-        import_history.status = 'completed'
-        import_history.save()
-        logger.info('Import terminé avec succès')
+        if records_processed < records * 0.9:  # Si moins de 90% des enregistrements ont été traités
+            raise Exception(f'Import incomplet : seulement {records_processed}/{records} enregistrements traités')
 
     except Exception as e:
-        logger.error(f'Erreur lors de l\'import : {str(e)}', exc_info=True)
-        import_history.status = 'failed'
-        import_history.error_message = str(e)
-        import_history.save()
+        logger.error(f'Erreur lors du traitement : {str(e)}')
+        # Si une erreur survient pendant le traitement d'un CSV spécifique,
+        # on marque uniquement cet import comme échoué
+        if 'import_history' in locals():
+            import_history.status = 'failed'
+            import_history.error_message = str(e)
+            import_history.save()
         raise
+
+    finally:
+        # Nettoyer les fichiers temporaires
+        try:
+            os.unlink(temp_zip.name)
+        except Exception as e:
+            logger.error(f'Erreur lors du nettoyage des fichiers temporaires : {str(e)}')
+
+    logger.info('Traitement du ZIP terminé')
