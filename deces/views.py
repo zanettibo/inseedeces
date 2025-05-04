@@ -72,7 +72,7 @@ def import_data(request):
         except Exception as e:
             return JsonResponse({'error': str(e)}, status=500)
 
-    imports = ImportHistory.objects.all().order_by('-started_at')
+    imports = ImportHistory.objects.all().order_by('-csv_filename')
     stats = ImportHistory.objects.filter(status__in=['completed', 'processing']).aggregate(
         processed=Sum('records_processed'),
         total=Sum('total_records')
