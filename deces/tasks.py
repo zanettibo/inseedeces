@@ -215,10 +215,17 @@ def process_insee_file(self, zip_url, zip_filename):
                             logger.info(f'Progression : {records_processed}/{records} ({(records_processed/records*100):.1f}%)')
                             # Force le commit de la transaction en cours
                             transaction.commit()
+                    import_history.records_processed = records_processed
+                    import_history.save()
+                    transaction.commit()
                     logger.info(f'Import terminé : {records_processed} enregistrements traités, {error_count} erreurs')
 
         # Nettoyer
-        os.unlink(temp_zip.name)
+        if os.path.exists(temp_zip.name):
+            try:
+                os.unlink(temp_zip.name)
+            except Exception as e:
+                logger.warning(f'Erreur lors du nettoyage du fichier temporaire {temp_zip.name}: {str(e)}')
         
         if records_processed < records * 0.9:  # Si moins de 90% des enregistrements ont été traités
             raise Exception(f'Import incomplet : seulement {records_processed}/{records} enregistrements traités')
