@@ -115,6 +115,14 @@ def process_insee_file(self, zip_url, zip_filename):
     try:
         # Télécharger le fichier ZIP
         logger.info('Téléchargement du fichier ZIP')
+        zip_import_history = ImportHistory.objects.create(
+            zip_url=zip_url,
+            zip_filename=zip_filename,
+            csv_filename="unknown.csv",
+            md5_hash="unknown",
+            status='downloading'
+        )
+        zip_import_history.save()
         response = requests.get(zip_url, stream=True)
         response.raise_for_status()
 
@@ -131,37 +139,41 @@ def process_insee_file(self, zip_url, zip_filename):
                         logger.debug(f'Téléchargement : {progress:.1f}%')
             temp_zip.flush()
             logger.info('Fichier ZIP téléchargé avec succès')
-
+            zip_import_history.delete()
         # Extraire et traiter chaque fichier CSV
         with zipfile.ZipFile(temp_zip.name, 'r') as zip_ref:
             csv_files = [f for f in zip_ref.namelist() if f.endswith('.csv')]
             
             for csv_file in csv_files:
                 logger.info(f'Traitement du fichier {csv_file}')
-                
-                # Calculer le MD5 du fichier CSV
-                with zip_ref.open(csv_file) as f:
-                    md5_hash = hashlib.md5(f.read()).hexdigest()
-                
-                # Vérifier si le fichier a déjà été traité
-                if ImportHistory.objects.filter(csv_filename=csv_file, md5_hash=md5_hash).exists():
-                    logger.info(f'Le fichier {csv_file} a déjà été traité')
-                    continue
-
                 # Créer un enregistrement ImportHistory pour ce CSV
                 import_history = ImportHistory.objects.create(
                     zip_url=zip_url,
                     zip_filename=zip_filename,
                     csv_filename=csv_file,
-                    md5_hash=md5_hash,
-                    status='processing'
+                    md5_hash="unknown",
+                    status='checking'
                 )
+                import_history.save()
+                # Calculer le MD5 du fichier CSV
+                with zip_ref.open(csv_file) as f:
+                    md5_hash = hashlib.md5(f.read()).hexdigest()
+              
+                # Vérifier si le fichier a déjà été traité
+                if ImportHistory.objects.filter(csv_filename=csv_file, md5_hash=md5_hash).exists():
+                    logger.info(f'Le fichier {csv_file} a déjà été traité')
+                    import_history.delete()
+                    continue
+                
+                import_history.md5_hash = md5_hash
+                import_history.save()
 
                 # Extraire et traiter le fichier CSV
                 with zip_ref.open(csv_file) as f:
                     df = pd.read_csv(f, sep=';', dtype=str)
                     records = len(df)
                     import_history.total_records = records
+                    import_history.status = 'processing'
                     import_history.save()
                     logger.info(f'Nombre total d\'enregistrements à traiter : {records}')
 

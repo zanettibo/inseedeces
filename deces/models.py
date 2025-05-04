@@ -30,6 +30,8 @@ class Deces(models.Model):
 class ImportHistory(models.Model):
     STATUS_CHOICES = [
         ('pending', 'En attente'),
+        ('downloading', 'Téléchargement'),
+        ('checking', 'Vérification'),
         ('processing', 'En cours'),
         ('completed', 'Terminé'),
         ('failed', 'Échec')
