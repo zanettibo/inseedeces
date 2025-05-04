@@ -33,7 +33,7 @@
             <div class="card-header d-flex justify-content-between align-items-center">
                 <h5 class="card-title mb-0">Historique des imports</h5>
                 <div class="text-muted" id="import-stats">
-                    <strong>Importé :</strong> {{ total_records_processed|intcomma }} / {{ total_records|intcomma }} enregistrements
+                    <strong>Importé :</strong> {{ total_records_processed }} / {{ total_records }} enregistrements
                 </div>
             </div>
             <div class="card-body">
@@ -72,7 +72,7 @@
                                         {% endwith %}
                                     </div>
                                 </td>
-                                <td>{{ import.total_records|intcomma }}</td>
+                                <td>{{ import.total_records }}</td>
                             </tr>
                             {% if import.error_message %}
                             <tr class="table-danger">
@@ -154,7 +154,7 @@ function updateImportStatus(importId) {
                     // Mettre à jour le total
                     const totalCell = row.querySelector('td:last-child');
                     if (totalCell) {
-                        totalCell.textContent = new Intl.NumberFormat('fr-FR').format(data.total_records);
+                        totalCell.textContent = data.total_records;
                     }
                 }
                 
@@ -177,7 +177,7 @@ function updateImportStats() {
         .then(data => {
             const statsElement = document.querySelector('#import-stats');
             if (statsElement) {
-                statsElement.innerHTML = `<strong>Importé :</strong> ${new Intl.NumberFormat('fr-FR').format(data.total_records_processed)} / ${new Intl.NumberFormat('fr-FR').format(data.total_records)} enregistrements`;
+                statsElement.innerHTML = `<strong>Importé :</strong> ${data.total_records_processed} / ${data.total_records} enregistrements`;
             }
         })
         .catch(error => console.error('Erreur lors de la mise à jour des stats:', error));
