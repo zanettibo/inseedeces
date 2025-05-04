@@ -203,9 +203,6 @@ def process_insee_file(self, zip_url, zip_filename):
                             logger.info(f'Progression : {records_processed}/{records} ({(records_processed/records*100):.1f}%)')
                             # Force le commit de la transaction en cours
                             transaction.commit()
-
-                    # Nettoyer
-                    os.unlink(temp_csv.name)
                     logger.info(f'Import terminé : {records_processed} enregistrements traités, {error_count} erreurs')
 
         # Nettoyer
