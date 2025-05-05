@@ -137,7 +137,7 @@
                         <ul class="pagination justify-content-center">
                             {% if page_obj.has_previous %}
                                 <li class="page-item">
-                                    <a class="page-link" href="?nom={{ nom }}&prenoms={{ prenoms }}&sexe={{ sexe }}&date_naissance_debut={{ date_naissance_debut }}&date_naissance_fin={{ date_naissance_fin }}&date_deces_debut={{ date_deces_debut }}&date_deces_fin={{ date_deces_fin }}&page={{ page_obj.previous_page_number }}">Précédent</a>
+                                    <a class="page-link" href="?nom={{ nom }}&prenoms={{ prenoms }}&sexe={{ sexe }}&date_naissance_debut={{ date_naissance_debut }}&date_naissance_fin={{ date_naissance_fin }}&date_deces_debut={{ date_deces_debut }}&date_deces_fin={{ date_deces_fin }}&page={{ page_obj.previous_page_number }}&order_by={{ order_by }}&order_dir={{ order_dir }}">Précédent</a>
                                 </li>
                             {% endif %}
 
@@ -148,14 +148,14 @@
                                     </li>
                                 {% elif i > page_obj.number|add:'-3' and i < page_obj.number|add:'3' %}
                                     <li class="page-item">
-                                        <a class="page-link" href="?nom={{ nom }}&prenoms={{ prenoms }}&sexe={{ sexe }}&date_naissance_debut={{ date_naissance_debut }}&date_naissance_fin={{ date_naissance_fin }}&date_deces_debut={{ date_deces_debut }}&date_deces_fin={{ date_deces_fin }}&page={{ i }}">{{ i }}</a>
+                                        <a class="page-link" href="?nom={{ nom }}&prenoms={{ prenoms }}&sexe={{ sexe }}&date_naissance_debut={{ date_naissance_debut }}&date_naissance_fin={{ date_naissance_fin }}&date_deces_debut={{ date_deces_debut }}&date_deces_fin={{ date_deces_fin }}&page={{ i }}&order_by={{ order_by }}&order_dir={{ order_dir }}">{{ i }}</a>
                                     </li>
                                 {% endif %}
                             {% endfor %}
 
                             {% if page_obj.has_next %}
                                 <li class="page-item">
-                                    <a class="page-link" href="?nom={{ nom }}&prenoms={{ prenoms }}&sexe={{ sexe }}&date_naissance_debut={{ date_naissance_debut }}&date_naissance_fin={{ date_naissance_fin }}&date_deces_debut={{ date_deces_debut }}&date_deces_fin={{ date_deces_fin }}&page={{ page_obj.next_page_number }}">Suivant</a>
+                                    <a class="page-link" href="?nom={{ nom }}&prenoms={{ prenoms }}&sexe={{ sexe }}&date_naissance_debut={{ date_naissance_debut }}&date_naissance_fin={{ date_naissance_fin }}&date_deces_debut={{ date_deces_debut }}&date_deces_fin={{ date_deces_fin }}&page={{ page_obj.next_page_number }}&order_by={{ order_by }}&order_dir={{ order_dir }}">Suivant</a>
                                 </li>
                             {% endif %}
                         </ul>
