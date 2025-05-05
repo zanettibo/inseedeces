@@ -9,9 +9,12 @@ import pandas as pd
 from datetime import datetime
 from celery import shared_task
 from django.db import transaction
-from celery.utils.log import get_task_logger
+from django.core.files.storage import default_storage
+from django.utils import timezone
+from django.core.exceptions import ObjectDoesNotExist
+from deces.models import Deces, ImportHistory, Pays, Commune
 import requests
-from .models import Deces, ImportHistory
+from celery.utils.log import get_task_logger
 
 logger = get_task_logger(__name__)
 
@@ -76,8 +79,6 @@ def parse_row(row):
             
         # Nettoyer les autres champs
         lieu_naissance = row.get('lieunaiss', '')
-        commune_naissance = row.get('commnaiss', '')
-        pays_naissance = row.get('paysnaiss', '')
         lieu_deces = row.get('lieudeces', '')
         acte_deces = row.get('actedeces', '')
 
@@ -88,8 +89,6 @@ def parse_row(row):
             'sexe': sexe,
             'date_naissance': date_naissance,
             'lieu_naissance': lieu_naissance,
-            'commune_naissance': commune_naissance,
-            'pays_naissance': pays_naissance,
             'date_deces': date_deces,
             'lieu_deces': lieu_deces,
             'acte_deces': acte_deces
@@ -195,8 +194,6 @@ def process_insee_file(self, zip_url, zip_filename):
                                 sexe=parsed_data['sexe'],
                                 date_naissance=parsed_data['date_naissance'],
                                 lieu_naissance=parsed_data['lieu_naissance'],
-                                commune_naissance=parsed_data['commune_naissance'],
-                                pays_naissance=parsed_data['pays_naissance'],
                                 date_deces=parsed_data['date_deces'],
                                 lieu_deces=parsed_data['lieu_deces'],
                                 acte_deces=parsed_data['acte_deces']

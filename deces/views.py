@@ -117,7 +117,7 @@ def search(request):
     nom = request.GET.get('nom', '')
     nom_flexible = request.GET.get('nom_flexible', '') == 'on'
     prenoms = request.GET.get('prenoms', '')
-    prenoms_flexible = request.GET.get('prenoms_flexible') == 'on'
+    prenoms_flexible = request.GET.get('prenoms_flexible', '') == 'on'
     sexe = request.GET.get('sexe', '')
     date_naissance_debut = request.GET.get('date_naissance_debut', '')
     date_naissance_fin = request.GET.get('date_naissance_fin', '')
@@ -169,7 +169,6 @@ def search(request):
             'nom': 'nom',
             'prenoms': 'prenoms',
             'date_naissance': 'date_naissance',
-            'commune_naissance': 'commune_naissance',
             'date_deces': 'date_deces',
             'lieu_deces': 'lieu_deces'
         }

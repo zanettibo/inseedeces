@@ -1,5 +1,6 @@
 from django.db import models
 from django.utils import timezone
+from django.core.exceptions import ValidationError
 
 class Deces(models.Model):
     # Define composite primary key from these three fields
@@ -14,17 +15,44 @@ class Deces(models.Model):
     # Birth information
     date_naissance = models.DateField()
     lieu_naissance = models.CharField(max_length=5)
-    commune_naissance = models.CharField(max_length=100)
-    pays_naissance = models.CharField(max_length=100, blank=True)
     
     # Death information - these fields are part of the primary key
     date_deces = models.DateField()
-    lieu_deces = models.CharField(max_length=100)
+    lieu_deces = models.CharField(max_length=5)
     acte_deces = models.CharField(max_length=10)
+    
+    @property
+    def lieu_naissance_detail(self):
+        """Retourne le Pays ou la Commune correspondant au lieu de naissance"""
+        if self.lieu_naissance.startswith('99'):
+            try:
+                return Pays.objects.get(cog=self.lieu_naissance)
+            except Pays.DoesNotExist:
+                return None
+        else:
+            try:
+                return Commune.objects.get(com=self.lieu_naissance)
+            except Commune.DoesNotExist:
+                return None
+    
+    @property
+    def lieu_deces_detail(self):
+        """Retourne le Pays ou la Commune correspondant au lieu de décès"""
+        if self.lieu_deces.startswith('99'):
+            try:
+                return Pays.objects.get(cog=self.lieu_deces)
+            except Pays.DoesNotExist:
+                return None
+        else:
+            try:
+                return Commune.objects.get(com=self.lieu_deces)
+            except Commune.DoesNotExist:
+                return None
 
     class Meta:
         verbose_name = 'Décès'
         verbose_name_plural = 'Décès'
+        unique_together = ['nom', 'prenoms', 'date_naissance', 'sexe', 'date_deces', 'lieu_deces', 'acte_deces']
         indexes = [
             models.Index(fields=['nom']),
             models.Index(fields=['prenoms']),
@@ -32,11 +60,145 @@ class Deces(models.Model):
             models.Index(fields=['date_naissance']),
             models.Index(fields=['lieu_naissance']),
             models.Index(fields=['date_deces']),
-            models.Index(fields=['lieu_deces']),
+            models.Index(fields=['lieu_deces'])
         ]
 
     def __str__(self):
         return f"{self.nom} {self.prenoms} ({self.date_naissance} - {self.date_deces})"
+
+class Pays(models.Model):
+    # Clé primaire
+    cog = models.CharField(max_length=5, primary_key=True, help_text='Code du pays ou territoire')
+    
+    # Champs de base
+    actual = models.CharField(max_length=1, help_text='Code actualité du pays ou territoire étranger')
+    crpay = models.CharField(max_length=5, blank=True, help_text='Code officiel géographique de l\'actuel pays de rattachement')
+    ani = models.CharField(max_length=4, blank=True, help_text='Année d\'apparition du code au COG')
+    
+    # Libellés
+    libcog = models.CharField(max_length=70, help_text='Libellé utilisé dans le COG')
+    libenr = models.CharField(max_length=200, help_text='Nom officiel du pays, ou composition détaillée du territoire')
+    
+    # Codes ISO
+    codeiso2 = models.CharField(max_length=2, blank=True, help_text='Code du pays sur 2 caractères conforme à la norme internationale ISO 3166')
+    codeiso3 = models.CharField(max_length=3, blank=True, help_text='Code du pays sur 3 caractères conforme à la norme internationale ISO 3166')
+    codenum3 = models.CharField(max_length=3, blank=True, help_text='Code du pays à 3 chiffres conforme à la norme internationale ISO 3166')
+    
+    class Meta:
+        verbose_name = 'Pays'
+        verbose_name_plural = 'Pays'
+        ordering = ['libcog']
+        indexes = [
+            models.Index(fields=['libcog']),
+            models.Index(fields=['libenr']),
+            models.Index(fields=['codeiso2']),
+            models.Index(fields=['codeiso3']),
+        ]
+
+    def __str__(self):
+        return f'{self.libcog} ({self.cog})'
+
+
+class Region(models.Model):
+    # Clé primaire
+    reg = models.CharField(max_length=2, primary_key=True, help_text='Code région')
+    
+    # Informations de base
+    cheflieu = models.CharField(max_length=5, help_text='Code de la commune chef-lieu')
+    tncc = models.CharField(max_length=1, help_text='Type de nom en clair')
+    
+    # Noms et libellés
+    ncc = models.CharField(max_length=200, help_text='Nom en clair (majuscules)')
+    nccenr = models.CharField(max_length=200, help_text='Nom en clair (typographie riche)')
+    libelle = models.CharField(max_length=200, help_text='Nom en clair (typographie riche) avec article')
+    
+    class Meta:
+        verbose_name = 'Région'
+        verbose_name_plural = 'Régions'
+        ordering = ['ncc']
+        indexes = [
+            models.Index(fields=['ncc']),
+            models.Index(fields=['nccenr']),
+            models.Index(fields=['libelle']),
+        ]
+
+    def __str__(self):
+        return self.libelle
+
+
+class Departement(models.Model):
+    # Clé primaire
+    dep = models.CharField(max_length=3, primary_key=True, help_text='Code département')
+    
+    # Relations
+    reg = models.ForeignKey(Region, on_delete=models.CASCADE, help_text='Code région')
+    
+    # Informations de base
+    cheflieu = models.CharField(max_length=5, help_text='Code de la commune chef-lieu')
+    tncc = models.CharField(max_length=1, help_text='Type de nom en clair')
+    
+    # Noms et libellés
+    ncc = models.CharField(max_length=200, help_text='Nom en clair (majuscules)')
+    nccenr = models.CharField(max_length=200, help_text='Nom en clair (typographie riche)')
+    libelle = models.CharField(max_length=200, help_text='Nom en clair (typographie riche) avec article')
+    
+    class Meta:
+        verbose_name = 'Département'
+        verbose_name_plural = 'Départements'
+        ordering = ['ncc']
+        indexes = [
+            models.Index(fields=['ncc']),
+            models.Index(fields=['nccenr']),
+            models.Index(fields=['libelle']),
+        ]
+    
+    def __str__(self):
+        return self.libelle
+
+class Commune(models.Model):
+    # Type de commune
+    TYPECOM_CHOICES = [
+        ('COM', 'Commune'),
+        ('ARM', 'Arrondissement municipal'),
+        ('COMA', 'Commune associée'),
+        ('COMD', 'Commune déléguée')
+    ]
+    typecom = models.CharField(max_length=4, choices=TYPECOM_CHOICES, help_text='Type de commune')
+    
+    # Clé primaire
+    com = models.CharField(max_length=5, primary_key=True, help_text='Code commune')
+    
+    # Relations
+    reg = models.ForeignKey(Region, on_delete=models.CASCADE, help_text='Code région')
+    dep = models.ForeignKey(Departement, on_delete=models.CASCADE, help_text='Code département')
+    
+    # Informations administratives
+    ctcd = models.CharField(max_length=4, help_text='Code de la collectivité territoriale ayant les compétences départementales')
+    arr = models.CharField(max_length=4, help_text='Code arrondissement')
+    tncc = models.CharField(max_length=1, help_text='Type de nom en clair')
+    
+    # Noms et libellés
+    ncc = models.CharField(max_length=200, help_text='Nom en clair (majuscules)')
+    nccenr = models.CharField(max_length=200, help_text='Nom en clair (typographie riche)')
+    libelle = models.CharField(max_length=200, help_text='Nom en clair (typographie riche) avec article')
+    
+    # Informations complémentaires
+    can = models.CharField(max_length=5, help_text='Code canton')
+    comparent = models.CharField(max_length=5, blank=True, help_text='Code de la commune parente')
+    
+    class Meta:
+        verbose_name = 'Commune'
+        verbose_name_plural = 'Communes'
+        ordering = ['dep', 'ncc']
+        indexes = [
+            models.Index(fields=['ncc']),
+            models.Index(fields=['nccenr']),
+            models.Index(fields=['libelle']),
+        ]
+
+    def __str__(self):
+        return f'{self.libelle} ({self.dep_id})'
+
 
 class ImportHistory(models.Model):
     STATUS_CHOICES = [
