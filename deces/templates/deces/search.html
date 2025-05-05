@@ -143,7 +143,19 @@
                     {% if page_obj.paginator.num_pages > 1 %}
                     <nav aria-label="Pagination" class="mt-4">
                         <ul class="pagination justify-content-center">
+                            {% if page_obj.number != 1 %}
+                                <li class="page-item">
+                                    <a class="page-link" href="?nom={{ nom }}&prenoms={{ prenoms }}&sexe={{ sexe }}&date_naissance_debut={{ date_naissance_debut }}&date_naissance_fin={{ date_naissance_fin }}&date_deces_debut={{ date_deces_debut }}&date_deces_fin={{ date_deces_fin }}&page=1&order_by={{ order_by }}&order_dir={{ order_dir }}" title="Première page">&laquo;</a>
+                                </li>
+                            {% endif %}
                             {% if page_obj.has_previous %}
+                                {% with prev_10=page_obj.number|add:'-10' %}
+                                    {% if prev_10 >= 1 %}
+                                        <li class="page-item">
+                                            <a class="page-link" href="?nom={{ nom }}&prenoms={{ prenoms }}&sexe={{ sexe }}&date_naissance_debut={{ date_naissance_debut }}&date_naissance_fin={{ date_naissance_fin }}&date_deces_debut={{ date_deces_debut }}&date_deces_fin={{ date_deces_fin }}&page={{ prev_10 }}&order_by={{ order_by }}&order_dir={{ order_dir }}" title="Reculer de 10 pages">-10</a>
+                                        </li>
+                                    {% endif %}
+                                {% endwith %}
                                 <li class="page-item">
                                     <a class="page-link" href="?nom={{ nom }}&prenoms={{ prenoms }}&sexe={{ sexe }}&date_naissance_debut={{ date_naissance_debut }}&date_naissance_fin={{ date_naissance_fin }}&date_deces_debut={{ date_deces_debut }}&date_deces_fin={{ date_deces_fin }}&page={{ page_obj.previous_page_number }}&order_by={{ order_by }}&order_dir={{ order_dir }}">Précédent</a>
                                 </li>
@@ -164,6 +176,18 @@
                             {% if page_obj.has_next %}
                                 <li class="page-item">
                                     <a class="page-link" href="?nom={{ nom }}&prenoms={{ prenoms }}&sexe={{ sexe }}&date_naissance_debut={{ date_naissance_debut }}&date_naissance_fin={{ date_naissance_fin }}&date_deces_debut={{ date_deces_debut }}&date_deces_fin={{ date_deces_fin }}&page={{ page_obj.next_page_number }}&order_by={{ order_by }}&order_dir={{ order_dir }}">Suivant</a>
+                                </li>
+                                {% with next_10=page_obj.number|add:'10' %}
+                                    {% if next_10 <= page_obj.paginator.num_pages %}
+                                        <li class="page-item">
+                                            <a class="page-link" href="?nom={{ nom }}&prenoms={{ prenoms }}&sexe={{ sexe }}&date_naissance_debut={{ date_naissance_debut }}&date_naissance_fin={{ date_naissance_fin }}&date_deces_debut={{ date_deces_debut }}&date_deces_fin={{ date_deces_fin }}&page={{ next_10 }}&order_by={{ order_by }}&order_dir={{ order_dir }}" title="Avancer de 10 pages">+10</a>
+                                        </li>
+                                    {% endif %}
+                                {% endwith %}
+                            {% endif %}
+                            {% if page_obj.number != page_obj.paginator.num_pages %}
+                                <li class="page-item">
+                                    <a class="page-link" href="?nom={{ nom }}&prenoms={{ prenoms }}&sexe={{ sexe }}&date_naissance_debut={{ date_naissance_debut }}&date_naissance_fin={{ date_naissance_fin }}&date_deces_debut={{ date_deces_debut }}&date_deces_fin={{ date_deces_fin }}&page={{ page_obj.paginator.num_pages }}&order_by={{ order_by }}&order_dir={{ order_dir }}" title="Dernière page">&raquo;</a>
                                 </li>
                             {% endif %}
                         </ul>
