@@ -11,7 +11,15 @@
                     <div class="row g-3">
                         <div class="col-md-6">
                             <label for="nom" class="form-label">Nom</label>
-                            <input type="text" name="nom" id="nom" class="form-control" value="{{ nom }}">
+                            <div class="input-group">
+                                <input type="text" name="nom" id="nom" class="form-control" value="{{ nom }}">
+                                <div class="input-group-text">
+                                    <div class="form-check mb-0">
+                                        <input type="checkbox" name="nom_flexible" id="nom_flexible" class="form-check-input" {% if nom_flexible %}checked{% endif %}>
+                                        <label class="form-check-label" for="nom_flexible">Recherche flexible</label>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
                         <div class="col-md-6">
                             <label for="prenoms" class="form-label">Prénoms</label>
@@ -179,4 +187,19 @@
         </div>
     </div>
 </div>
+
+{% block extra_js %}
+<script>
+    const nomInput = document.getElementById('nom');
+    const nomFlexible = document.getElementById('nom_flexible');
+
+    function updateNomCase() {
+        if (!nomFlexible.checked && nomInput.value) {
+            nomInput.value = nomInput.value.toUpperCase();
+        }
+    }
+
+    nomInput.addEventListener('input', updateNomCase);
+    nomFlexible.addEventListener('change', updateNomCase);
+</script>
 {% endblock %}

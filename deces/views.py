@@ -115,6 +115,7 @@ def import_stats(request):
 
 def search(request):
     nom = request.GET.get('nom', '')
+    nom_flexible = request.GET.get('nom_flexible', '') == 'on'
     prenoms = request.GET.get('prenoms', '')
     sexe = request.GET.get('sexe', '')
     date_naissance_debut = request.GET.get('date_naissance_debut', '')
@@ -138,7 +139,10 @@ def search(request):
 
         # Appliquer les filtres si présents
         if nom:
-            results = results.filter(nom__icontains=nom)
+            if nom_flexible:
+                results = results.filter(nom__icontains=nom)
+            else:
+                results = results.filter(nom=nom.upper())
         if prenoms:
             results = results.filter(prenoms__icontains=prenoms)
         if sexe:
@@ -187,6 +191,7 @@ def search(request):
         'has_search_criteria': has_search_criteria,
         'query': query,
         'order_by': order_by,
-        'order_dir': order_dir
+        'order_dir': order_dir,
+        'nom_flexible': nom_flexible
     }
     return render(request, 'deces/search.html', context)
