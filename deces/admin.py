@@ -25,8 +25,8 @@ class ImportHistoryAdmin(admin.ModelAdmin):
     search_fields = ('zip_filename', 'csv_filename', 'md5_hash')
     ordering = ('-started_at',)
 
-@admin.register(Deces)
-class DecesAdmin(admin.ModelAdmin):
-    list_display = ('nom', 'prenoms', 'date_naissance', 'date_deces')
-    search_fields = ('nom', 'prenoms')
-    list_filter = ('date_naissance', 'date_deces')
+#@admin.register(Deces)
+#class DecesAdmin(admin.ModelAdmin):
+#    list_display = ('nom', 'prenoms', 'date_naissance', 'date_deces')
+#    search_fields = ('nom', 'prenoms')
+#    list_filter = ('date_naissance', 'date_deces')

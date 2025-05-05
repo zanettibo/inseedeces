@@ -2,13 +2,22 @@ from django.db import models
 from django.utils import timezone
 
 class Deces(models.Model):
+    # Define composite primary key from these three fields
+    id = None
+    pk = models.CompositePrimaryKey("date_deces", "lieu_deces", "acte_deces")
+
+    # Personal information
     nom = models.CharField(max_length=100, null=True, blank=True)
     prenoms = models.CharField(max_length=200, null=True, blank=True)
     sexe = models.CharField(max_length=1)
+    
+    # Birth information
     date_naissance = models.DateField()
     lieu_naissance = models.CharField(max_length=5)
     commune_naissance = models.CharField(max_length=100)
     pays_naissance = models.CharField(max_length=100, blank=True)
+    
+    # Death information - these fields are part of the primary key
     date_deces = models.DateField()
     lieu_deces = models.CharField(max_length=100)
     acte_deces = models.CharField(max_length=10)
@@ -19,13 +28,15 @@ class Deces(models.Model):
         indexes = [
             models.Index(fields=['nom']),
             models.Index(fields=['prenoms']),
+            models.Index(fields=['sexe']),
             models.Index(fields=['date_naissance']),
+            models.Index(fields=['lieu_naissance']),
             models.Index(fields=['date_deces']),
+            models.Index(fields=['lieu_deces']),
         ]
 
     def __str__(self):
         return f"{self.nom} {self.prenoms} ({self.date_naissance} - {self.date_deces})"
-
 
 class ImportHistory(models.Model):
     STATUS_CHOICES = [
