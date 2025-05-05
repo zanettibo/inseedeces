@@ -140,11 +140,11 @@ def search(request):
         # Appliquer les filtres si présents
         if nom:
             if nom_flexible:
-                results = results.filter(nom__icontains=nom)
+                results = results.filter(nom__contains=nom.upper())
             else:
                 results = results.filter(nom=nom.upper())
         if prenoms:
-            results = results.filter(prenoms__icontains=prenoms)
+            results = results.filter(prenoms__contains=prenoms.upper())
         if sexe:
             results = results.filter(sexe=sexe)
         
