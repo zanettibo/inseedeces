@@ -67,12 +67,54 @@
                         <table class="table table-striped">
                             <thead>
                                 <tr>
-                                    <th>Nom</th>
-                                    <th>Prénoms</th>
-                                    <th>Date de naissance</th>
-                                    <th>Lieu de naissance</th>
-                                    <th>Date de décès</th>
-                                    <th>Lieu de décès</th>
+                                    <th>
+                                        <a href="?{% for key, value in request.GET.items %}{% if key != 'order_by' and key != 'order_dir' %}{{ key }}={{ value }}&{% endif %}{% endfor %}order_by=nom&order_dir={% if order_by == 'nom' and order_dir == 'asc' %}desc{% else %}asc{% endif %}" class="text-dark text-decoration-none">
+                                            Nom
+                                            {% if order_by == 'nom' %}
+                                                <i class="bi bi-arrow-{% if order_dir == 'asc' %}up{% else %}down{% endif %}-short"></i>
+                                            {% endif %}
+                                        </a>
+                                    </th>
+                                    <th>
+                                        <a href="?{% for key, value in request.GET.items %}{% if key != 'order_by' and key != 'order_dir' %}{{ key }}={{ value }}&{% endif %}{% endfor %}order_by=prenoms&order_dir={% if order_by == 'prenoms' and order_dir == 'asc' %}desc{% else %}asc{% endif %}" class="text-dark text-decoration-none">
+                                            Prénoms
+                                            {% if order_by == 'prenoms' %}
+                                                <i class="bi bi-arrow-{% if order_dir == 'asc' %}up{% else %}down{% endif %}-short"></i>
+                                            {% endif %}
+                                        </a>
+                                    </th>
+                                    <th>
+                                        <a href="?{% for key, value in request.GET.items %}{% if key != 'order_by' and key != 'order_dir' %}{{ key }}={{ value }}&{% endif %}{% endfor %}order_by=date_naissance&order_dir={% if order_by == 'date_naissance' and order_dir == 'asc' %}desc{% else %}asc{% endif %}" class="text-dark text-decoration-none">
+                                            Date de naissance
+                                            {% if order_by == 'date_naissance' %}
+                                                <i class="bi bi-arrow-{% if order_dir == 'asc' %}up{% else %}down{% endif %}-short"></i>
+                                            {% endif %}
+                                        </a>
+                                    </th>
+                                    <th>
+                                        <a href="?{% for key, value in request.GET.items %}{% if key != 'order_by' and key != 'order_dir' %}{{ key }}={{ value }}&{% endif %}{% endfor %}order_by=commune_naissance&order_dir={% if order_by == 'commune_naissance' and order_dir == 'asc' %}desc{% else %}asc{% endif %}" class="text-dark text-decoration-none">
+                                            Lieu de naissance
+                                            {% if order_by == 'commune_naissance' %}
+                                                <i class="bi bi-arrow-{% if order_dir == 'asc' %}up{% else %}down{% endif %}-short"></i>
+                                            {% endif %}
+                                        </a>
+                                    </th>
+                                    <th>
+                                        <a href="?{% for key, value in request.GET.items %}{% if key != 'order_by' and key != 'order_dir' %}{{ key }}={{ value }}&{% endif %}{% endfor %}order_by=date_deces&order_dir={% if order_by == 'date_deces' and order_dir == 'asc' %}desc{% else %}asc{% endif %}" class="text-dark text-decoration-none">
+                                            Date de décès
+                                            {% if order_by == 'date_deces' %}
+                                                <i class="bi bi-arrow-{% if order_dir == 'asc' %}up{% else %}down{% endif %}-short"></i>
+                                            {% endif %}
+                                        </a>
+                                    </th>
+                                    <th>
+                                        <a href="?{% for key, value in request.GET.items %}{% if key != 'order_by' and key != 'order_dir' %}{{ key }}={{ value }}&{% endif %}{% endfor %}order_by=lieu_deces&order_dir={% if order_by == 'lieu_deces' and order_dir == 'asc' %}desc{% else %}asc{% endif %}" class="text-dark text-decoration-none">
+                                            Lieu de décès
+                                            {% if order_by == 'lieu_deces' %}
+                                                <i class="bi bi-arrow-{% if order_dir == 'asc' %}up{% else %}down{% endif %}-short"></i>
+                                            {% endif %}
+                                        </a>
+                                    </th>
                                 </tr>
                             </thead>
                             <tbody>

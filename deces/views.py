@@ -123,6 +123,8 @@ def search(request):
     date_deces_fin = request.GET.get('date_deces_fin', '')
     page = request.GET.get('page', 1)
     query = request.GET.get('query', '')
+    order_by = request.GET.get('order_by', 'nom')
+    order_dir = request.GET.get('order_dir', 'asc')
 
     # Ne charger les résultats que si au moins un critère de recherche est présent
     has_search_criteria = any([nom, prenoms, sexe, date_naissance_debut, date_naissance_fin, 
@@ -155,7 +157,20 @@ def search(request):
             results = results.filter(date_deces__lte=date_deces_fin)
 
         # Tri des résultats
-        results = results.order_by('nom', 'prenoms')
+        valid_fields = {
+            'nom': 'nom',
+            'prenoms': 'prenoms',
+            'date_naissance': 'date_naissance',
+            'commune_naissance': 'commune_naissance',
+            'date_deces': 'date_deces',
+            'lieu_deces': 'lieu_deces'
+        }
+
+        if order_by in valid_fields:
+            order_field = valid_fields[order_by]
+            if order_dir == 'desc':
+                order_field = f'-{order_field}'
+            results = results.order_by(order_field)
 
         paginator = Paginator(results, 20)
         page_obj = paginator.get_page(page)
@@ -170,6 +185,8 @@ def search(request):
         'date_deces_fin': date_deces_fin,
         'page_obj': page_obj,
         'has_search_criteria': has_search_criteria,
-        'query': query
+        'query': query,
+        'order_by': order_by,
+        'order_dir': order_dir
     }
     return render(request, 'deces/search.html', context)
