@@ -143,8 +143,8 @@
                                     <td>
                                         {% with lieu=deces.lieu_naissance_detail %}
                                             {% if lieu %}
-                                                {% if lieu.cog|slice:":2" == "99" %}
-                                                    {{ lieu.libelle }}
+                                                {% if deces.lieu_naissance|slice:":2" == "99" %}
+                                                    {{ lieu.libcog }}
                                                 {% else %}
                                                     {{ lieu.libelle }}, {{ lieu.dep.libelle }}
                                                 {% endif %}
@@ -156,8 +156,8 @@
                                     <td>
                                         {% with lieu=deces.lieu_deces_detail %}
                                             {% if lieu %}
-                                                {% if lieu.cog|slice:":2" == "99" %}
-                                                    {{ lieu.libelle }}
+                                                {% if deces.lieu_deces|slice:":2" == "99" %}
+                                                    {{ lieu.libcog }}
                                                 {% else %}
                                                     {{ lieu.libelle }}, {{ lieu.dep.libelle }}
                                                 {% endif %}

@@ -23,31 +23,39 @@ class Deces(models.Model):
     
     @property
     def lieu_naissance_detail(self):
-        """Retourne le Pays ou la Commune correspondant au lieu de naissance"""
+        if not self.lieu_naissance:
+            return None
+
+        # Si le code commence par 99, c'est un pays
         if self.lieu_naissance.startswith('99'):
             try:
                 return Pays.objects.get(cog=self.lieu_naissance)
             except Pays.DoesNotExist:
-                return None
-        else:
-            try:
-                return Commune.objects.get(com=self.lieu_naissance)
-            except Commune.DoesNotExist:
-                return None
-    
+                return self.lieu_naissance
+
+        # Sinon c'est une commune
+        try:
+            return Commune.objects.get(com=self.lieu_naissance)
+        except Commune.DoesNotExist:
+            return self.lieu_naissance
+
     @property
     def lieu_deces_detail(self):
-        """Retourne le Pays ou la Commune correspondant au lieu de décès"""
+        if not self.lieu_deces:
+            return None
+
+        # Si le code commence par 99, c'est un pays
         if self.lieu_deces.startswith('99'):
             try:
                 return Pays.objects.get(cog=self.lieu_deces)
             except Pays.DoesNotExist:
-                return None
-        else:
-            try:
-                return Commune.objects.get(com=self.lieu_deces)
-            except Commune.DoesNotExist:
-                return None
+                return self.lieu_deces
+
+        # Sinon c'est une commune
+        try:
+            return Commune.objects.get(com=self.lieu_deces)
+        except Commune.DoesNotExist:
+            return self.lieu_deces
 
     class Meta:
         verbose_name = 'Décès'
