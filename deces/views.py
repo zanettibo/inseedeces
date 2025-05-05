@@ -117,6 +117,7 @@ def search(request):
     nom = request.GET.get('nom', '')
     nom_flexible = request.GET.get('nom_flexible', '') == 'on'
     prenoms = request.GET.get('prenoms', '')
+    prenoms_flexible = request.GET.get('prenoms_flexible') == 'on'
     sexe = request.GET.get('sexe', '')
     date_naissance_debut = request.GET.get('date_naissance_debut', '')
     date_naissance_fin = request.GET.get('date_naissance_fin', '')
@@ -144,7 +145,10 @@ def search(request):
             else:
                 results = results.filter(nom=nom.upper())
         if prenoms:
-            results = results.filter(prenoms__contains=prenoms.upper())
+            if prenoms_flexible:
+                results = results.filter(prenoms__contains=prenoms.upper())
+            else:
+                results = results.filter(prenoms=prenoms.upper())
         if sexe:
             results = results.filter(sexe=sexe)
         
@@ -192,6 +196,7 @@ def search(request):
         'query': query,
         'order_by': order_by,
         'order_dir': order_dir,
-        'nom_flexible': nom_flexible
+        'nom_flexible': nom_flexible,
+        'prenoms_flexible': prenoms_flexible
     }
     return render(request, 'deces/search.html', context)

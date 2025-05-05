@@ -23,7 +23,15 @@
                         </div>
                         <div class="col-md-6">
                             <label for="prenoms" class="form-label">Prénoms</label>
-                            <input type="text" name="prenoms" id="prenoms" class="form-control" value="{{ prenoms }}">
+                            <div class="input-group">
+                                <input type="text" name="prenoms" id="prenoms" class="form-control" value="{{ prenoms }}">
+                                <div class="input-group-text">
+                                    <div class="form-check mb-0">
+                                        <input type="checkbox" name="prenoms_flexible" id="prenoms_flexible" class="form-check-input" {% if prenoms_flexible %}checked{% endif %}>
+                                        <label class="form-check-label" for="prenoms_flexible">Recherche flexible</label>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
                         
                         <div class="col-md-6">
@@ -215,16 +223,23 @@
 
 {% block extra_js %}
 <script>
-    const nomInput = document.getElementById('nom');
-    const nomFlexible = document.getElementById('nom_flexible');
+    function setupFlexibleInput(inputId, flexibleId) {
+        const input = document.getElementById(inputId);
+        const flexible = document.getElementById(flexibleId);
 
-    function updateNomCase() {
-        if (!nomFlexible.checked && nomInput.value) {
-            nomInput.value = nomInput.value.toUpperCase();
+        function updateCase() {
+            if (!flexible.checked && input.value) {
+                input.value = input.value.toUpperCase();
+            }
         }
+
+        input.addEventListener('input', updateCase);
+        flexible.addEventListener('change', updateCase);
     }
 
-    nomInput.addEventListener('input', updateNomCase);
-    nomFlexible.addEventListener('change', updateNomCase);
+    // Configuration pour le nom
+    setupFlexibleInput('nom', 'nom_flexible');
+    // Configuration pour les prénoms
+    setupFlexibleInput('prenoms', 'prenoms_flexible');
 </script>
 {% endblock %}
