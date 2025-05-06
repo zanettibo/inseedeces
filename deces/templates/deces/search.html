@@ -3,6 +3,14 @@
 {% block extra_css %}
 <link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
 <link href="https://cdn.jsdelivr.net/npm/select2-bootstrap-5-theme@1.3.0/dist/select2-bootstrap-5-theme.min.css" rel="stylesheet" />
+<style>
+    .select2-results__options {
+        max-height: 400px !important;
+    }
+    .select2-dropdown {
+        max-height: none !important;
+    }
+</style>
 {% endblock %}
 
 {% block extra_js %}
@@ -40,19 +48,35 @@
                     allowClear: true,
                     minimumInputLength: 2,
                     width: '100%',
-                    dropdownParent: $select.parent(),
+                    dropdownParent: $('body'),
+                    language: {
+                        inputTooShort: function() {
+                            return 'Veuillez saisir au moins 2 caractères';
+                        },
+                        noResults: function() {
+                            return 'Aucun résultat trouvé';
+                        },
+                        searching: function() {
+                            return 'Recherche en cours...';
+                        },
+                        loadingMore: function() {
+                            return 'Chargement de résultats supplémentaires...';
+                        }
+                    },
                     ajax: {
                         url: '{% url "autocomplete_lieu" %}',
                         dataType: 'json',
                         delay: 250,
                         data: function(params) {
                             return {
-                                q: params.term
+                                q: params.term,
+                                page: params.page
                             };
                         },
                         processResults: function(data) {
                             return {
-                                results: data.results
+                                results: data.results,
+                                pagination: data.pagination
                             };
                         },
                         cache: true

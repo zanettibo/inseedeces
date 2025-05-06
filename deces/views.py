@@ -119,32 +119,43 @@ def import_stats(request):
 
 def autocomplete_lieu(request):
     query = request.GET.get('q', '')
+    page = int(request.GET.get('page', 1))
+    page_size = 30
     if len(query) < 2:
-        return JsonResponse({'results': []})
+        return JsonResponse({'results': [], 'pagination': {'more': False}})
+
+    # Calculer l'offset pour la pagination
+    offset = (page - 1) * page_size
 
     # Rechercher dans les communes
     communes = Commune.objects.filter(
         Q(libelle__icontains=query) | 
         Q(ncc__icontains=query)
-    ).select_related('dep', 'reg')[:5]
+    ).select_related('dep', 'reg')[offset:offset + page_size]
+
+    # Vérifier s'il y a plus de résultats
+    has_more = Commune.objects.filter(
+        Q(libelle__icontains=query) | 
+        Q(ncc__icontains=query)
+    ).count() > offset + page_size
 
     # Rechercher dans les départements
     departements = Departement.objects.filter(
         Q(libelle__icontains=query) | 
         Q(ncc__icontains=query)
-    ).select_related('reg')[:5]
+    ).select_related('reg')
 
     # Rechercher dans les régions
     regions = Region.objects.filter(
         Q(libelle__icontains=query) | 
         Q(ncc__icontains=query)
-    )[:5]
+    )
 
     # Rechercher dans les pays
     pays = Pays.objects.filter(
         Q(libcog__icontains=query) | 
         Q(libenr__icontains=query)
-    )[:5]
+    )
 
     results = []
     
@@ -184,7 +195,12 @@ def autocomplete_lieu(request):
     pays_results.sort(key=lambda x: x['text'])
     results.extend(pays_results)
 
-    return JsonResponse({'results': results})
+    return JsonResponse({
+        'results': results,
+        'pagination': {
+            'more': has_more
+        }
+    })
 
 class SearchView(ListView):
     model = Deces
@@ -302,15 +318,23 @@ class SearchView(ListView):
         return context
 
 def search(request):
+    # Récupérer les paramètres de recherche
     nom = request.GET.get('nom', '')
-    nom_flexible = request.GET.get('nom_flexible', '') == 'on'
+    nom_flexible = request.GET.get('nom_flexible') == 'on'
     prenoms = request.GET.get('prenoms', '')
-    prenoms_flexible = request.GET.get('prenoms_flexible', '') == 'on'
+    prenoms_flexible = request.GET.get('prenoms_flexible') == 'on'
     sexe = request.GET.get('sexe', '')
     date_naissance_debut = request.GET.get('date_naissance_debut', '')
     date_naissance_fin = request.GET.get('date_naissance_fin', '')
     date_deces_debut = request.GET.get('date_deces_debut', '')
     date_deces_fin = request.GET.get('date_deces_fin', '')
+
+    # Récupérer les paramètres de lieu
+    lieu_naissance_id = request.GET.get('lieu_naissance')
+    lieu_naissance_type = request.GET.get('lieu_naissance_type')
+    lieu_deces_id = request.GET.get('lieu_deces')
+    lieu_deces_type = request.GET.get('lieu_deces_type')
+
     page = request.GET.get('page', 1)
     query = request.GET.get('query', '')
     order_by = request.GET.get('order_by', 'nom')
@@ -318,7 +342,7 @@ def search(request):
 
     # Ne charger les résultats que si au moins un critère de recherche est présent
     has_search_criteria = any([nom, prenoms, sexe, date_naissance_debut, date_naissance_fin, 
-                             date_deces_debut, date_deces_fin])
+                             date_deces_debut, date_deces_fin, lieu_naissance_id, lieu_deces_id])
     
     results = None
     page_obj = None
@@ -351,6 +375,36 @@ def search(request):
             results = results.filter(date_deces__gte=date_deces_debut)
         if date_deces_fin:
             results = results.filter(date_deces__lte=date_deces_fin)
+
+        # Filtres de lieu de naissance
+        if lieu_naissance_id and lieu_naissance_type:
+            if lieu_naissance_type == 'commune':
+                results = results.filter(lieu_naissance=lieu_naissance_id)
+            elif lieu_naissance_type == 'departement':
+                # Récupérer toutes les communes du département
+                commune_list = Commune.objects.filter(dep=lieu_naissance_id).values_list('com', flat=True)
+                results = results.filter(lieu_naissance__in=commune_list)
+            elif lieu_naissance_type == 'region':
+                # Récupérer toutes les communes de la région
+                commune_list = Commune.objects.filter(reg=lieu_naissance_id).values_list('com', flat=True)
+                results = results.filter(lieu_naissance__in=commune_list)
+            elif lieu_naissance_type == 'pays':
+                results = results.filter(lieu_naissance=lieu_naissance_id)
+
+        # Filtres de lieu de décès
+        if lieu_deces_id and lieu_deces_type:
+            if lieu_deces_type == 'commune':
+                results = results.filter(lieu_deces=lieu_deces_id)
+            elif lieu_deces_type == 'departement':
+                # Récupérer toutes les communes du département
+                commune_list = Commune.objects.filter(dep=lieu_deces_id).values_list('com', flat=True)
+                results = results.filter(lieu_deces__in=commune_list)
+            elif lieu_deces_type == 'region':
+                # Récupérer toutes les communes de la région
+                commune_list = Commune.objects.filter(reg=lieu_deces_id).values_list('com', flat=True)
+                results = results.filter(lieu_deces__in=commune_list)
+            elif lieu_deces_type == 'pays':
+                results = results.filter(lieu_deces=lieu_deces_id)
 
         # Tri des résultats
         valid_fields = {
