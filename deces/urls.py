@@ -2,6 +2,7 @@ from django.urls import path
 from . import views
 
 urlpatterns = [
+    path('autocomplete/lieu/', views.autocomplete_lieu, name='autocomplete_lieu'),
     path('', views.index, name='index'),
     path('import/', views.import_data, name='import_data'),
     path('import/<int:import_id>/status/', views.import_status, name='import_status'),

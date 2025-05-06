@@ -3,14 +3,18 @@ import hashlib
 from django.db.models import Sum
 from django.http import JsonResponse
 from django.shortcuts import render
-from django.core.cache import cache
-from django.views.decorators.http import require_http_methods
+from django.views.generic import ListView
+from django.http import JsonResponse
+from django.db.models import Q, Value, CharField
+from django.db.models.functions import Concat
+from .models import Deces, Commune, Region, Departement, Pays
 from django.views.decorators.cache import cache_page
 from django.core.paginator import Paginator
 from django.db.models import Q
 import requests
 from .models import Deces, ImportHistory
-from .tasks import process_insee_file
+from django.views.decorators.http import require_http_methods
+from django.views.decorators.cache import cache_page
 
 def rate_limit(key_prefix, limit=60):
     def decorator(view_func):
@@ -113,6 +117,190 @@ def import_stats(request):
         'total_records': stats['total'] or 0
     })
 
+def autocomplete_lieu(request):
+    query = request.GET.get('q', '')
+    if len(query) < 2:
+        return JsonResponse({'results': []})
+
+    # Rechercher dans les communes
+    communes = Commune.objects.filter(
+        Q(libelle__icontains=query) | 
+        Q(ncc__icontains=query)
+    ).select_related('dep', 'reg')[:5]
+
+    # Rechercher dans les départements
+    departements = Departement.objects.filter(
+        Q(libelle__icontains=query) | 
+        Q(ncc__icontains=query)
+    ).select_related('reg')[:5]
+
+    # Rechercher dans les régions
+    regions = Region.objects.filter(
+        Q(libelle__icontains=query) | 
+        Q(ncc__icontains=query)
+    )[:5]
+
+    # Rechercher dans les pays
+    pays = Pays.objects.filter(
+        Q(libcog__icontains=query) | 
+        Q(libenr__icontains=query)
+    )[:5]
+
+    results = []
+    
+    # Ajouter les communes (uniquement pour la France)
+    communes_results = [{
+        'id': commune.com,
+        'text': f"{commune.libelle}, {commune.dep.libelle}, {commune.reg.libelle}, France",
+        'type': 'commune'
+    } for commune in communes]
+    communes_results.sort(key=lambda x: x['text'])
+    results.extend(communes_results)
+
+    # Ajouter les départements
+    dept_results = [{
+        'id': dept.dep,
+        'text': f"{dept.libelle}, {dept.reg.libelle}, France",
+        'type': 'departement'
+    } for dept in departements]
+    dept_results.sort(key=lambda x: x['text'])
+    results.extend(dept_results)
+
+    # Ajouter les régions
+    region_results = [{
+        'id': region.reg,
+        'text': f"{region.libelle}, France",
+        'type': 'region'
+    } for region in regions]
+    region_results.sort(key=lambda x: x['text'])
+    results.extend(region_results)
+
+    # Ajouter les pays (sauf France qui est déjà incluse dans les autres niveaux)
+    pays_results = [{
+        'id': pays_item.cog,
+        'text': pays_item.libcog,
+        'type': 'pays'
+    } for pays_item in pays if pays_item.cog != '100']
+    pays_results.sort(key=lambda x: x['text'])
+    results.extend(pays_results)
+
+    return JsonResponse({'results': results})
+
+class SearchView(ListView):
+    model = Deces
+    template_name = 'deces/search.html'
+    paginate_by = 20
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        lieu = self.request.GET.get('lieu')
+        lieu_type = self.request.GET.get('lieu_type')
+
+        print(f"DEBUG - lieu: {lieu}, lieu_type: {lieu_type}")
+
+        if lieu and lieu_type:
+            try:
+                if lieu_type == 'commune':
+                    commune = Commune.objects.select_related('dep', 'reg').get(com=lieu)
+                    context['selected_lieu'] = {
+                        'id': commune.com,
+                        'text': f"{commune.libelle}, {commune.dep.libelle}, {commune.reg.libelle}, France",
+                        'type': 'commune'
+                    }
+                    print(f"DEBUG - Found commune: {context['selected_lieu']}")
+                elif lieu_type == 'departement':
+                    dept = Departement.objects.select_related('reg').get(dep=lieu)
+                    context['selected_lieu'] = {
+                        'id': dept.dep,
+                        'text': f"{dept.libelle}, {dept.reg.libelle}, France",
+                        'type': 'departement'
+                    }
+                    print(f"DEBUG - Found departement: {context['selected_lieu']}")
+                elif lieu_type == 'region':
+                    region = Region.objects.get(reg=lieu)
+                    context['selected_lieu'] = {
+                        'id': region.reg,
+                        'text': f"{region.libelle}, France",
+                        'type': 'region'
+                    }
+                    print(f"DEBUG - Found region: {context['selected_lieu']}")
+                elif lieu_type == 'pays':
+                    pays = Pays.objects.get(cog=lieu)
+                    context['selected_lieu'] = {
+                        'id': pays.cog,
+                        'text': pays.libcog,
+                        'type': 'pays'
+                    }
+                    print(f"DEBUG - Found pays: {context['selected_lieu']}")
+            except (Commune.DoesNotExist, Departement.DoesNotExist, Region.DoesNotExist, Pays.DoesNotExist) as e:
+                print(f"DEBUG - Error: {e}")
+                pass
+
+        return context
+
+    def get_queryset(self):
+        queryset = Deces.objects.all()
+        
+        # Filtrer par nom
+        nom = self.request.GET.get('nom')
+        if nom:
+            queryset = queryset.filter(nom__icontains=nom)
+        
+        # Filtrer par prénom
+        prenom = self.request.GET.get('prenom')
+        if prenom:
+            queryset = queryset.filter(prenoms__icontains=prenom)
+        
+        # Filtrer par date de naissance
+        date_naissance = self.request.GET.get('date_naissance')
+        if date_naissance:
+            queryset = queryset.filter(date_naissance=date_naissance)
+        
+        # Filtrer par date de décès
+        date_deces = self.request.GET.get('date_deces')
+        if date_deces:
+            queryset = queryset.filter(date_deces=date_deces)
+        
+        # Filtrer par lieu
+        lieu = self.request.GET.get('lieu')
+        if lieu:
+            lieu_type = self.request.GET.get('lieu_type')
+            if lieu_type == 'commune':
+                queryset = queryset.filter(
+                    Q(lieu_naissance=lieu) | 
+                    Q(lieu_deces=lieu)
+                )
+            elif lieu_type == 'departement':
+                queryset = queryset.filter(
+                    Q(lieu_naissance__in=Commune.objects.filter(dep=lieu).values_list('com', flat=True)) |
+                    Q(lieu_deces__in=Commune.objects.filter(dep=lieu).values_list('com', flat=True))
+                )
+            elif lieu_type == 'region':
+                queryset = queryset.filter(
+                    Q(lieu_naissance__in=Commune.objects.filter(reg=lieu).values_list('com', flat=True)) |
+                    Q(lieu_deces__in=Commune.objects.filter(reg=lieu).values_list('com', flat=True))
+                )
+            elif lieu_type == 'pays':
+                queryset = queryset.filter(
+                    Q(lieu_naissance=lieu) | 
+                    Q(lieu_deces=lieu)
+                )
+        
+        # Trier les résultats
+        order_by = self.request.GET.get('order_by', 'nom')
+        order_dir = self.request.GET.get('order_dir', 'asc')
+        
+        if order_dir == 'desc':
+            order_by = f'-{order_by}'
+        
+        return queryset.order_by(order_by)
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['order_by'] = self.request.GET.get('order_by', 'nom')
+        context['order_dir'] = self.request.GET.get('order_dir', 'asc')
+        return context
+
 def search(request):
     nom = request.GET.get('nom', '')
     nom_flexible = request.GET.get('nom_flexible', '') == 'on'
@@ -182,6 +370,37 @@ def search(request):
         paginator = Paginator(results, 20)
         page_obj = paginator.get_page(page)
 
+    def get_lieu_text(lieu_id, lieu_type):
+        if not lieu_id or not lieu_type:
+            return None
+        try:
+            if lieu_type == 'commune':
+                commune = Commune.objects.get(com=lieu_id)
+                dept = commune.dep
+                region = dept.reg
+                return f"{commune.libelle}, {dept.libelle}, {region.libelle}, France"
+            elif lieu_type == 'departement':
+                dept = Departement.objects.get(dep=lieu_id)
+                region = dept.reg
+                return f"{dept.libelle}, {region.libelle}, France"
+            elif lieu_type == 'region':
+                region = Region.objects.get(reg=lieu_id)
+                return f"{region.libelle}, France"
+            elif lieu_type == 'pays':
+                pays = Pays.objects.get(cog=lieu_id)
+                return pays.libcog
+        except (Commune.DoesNotExist, Departement.DoesNotExist, Region.DoesNotExist, Pays.DoesNotExist):
+            return None
+
+    # Récupérer les informations des lieux sélectionnés
+    lieu_naissance_id = request.GET.get('lieu_naissance')
+    lieu_naissance_type = request.GET.get('lieu_naissance_type')
+    selected_lieu_naissance_text = get_lieu_text(lieu_naissance_id, lieu_naissance_type)
+
+    lieu_deces_id = request.GET.get('lieu_deces')
+    lieu_deces_type = request.GET.get('lieu_deces_type')
+    selected_lieu_deces_text = get_lieu_text(lieu_deces_id, lieu_deces_type)
+
     context = {
         'nom': nom,
         'prenoms': prenoms,
@@ -196,6 +415,8 @@ def search(request):
         'order_by': order_by,
         'order_dir': order_dir,
         'nom_flexible': nom_flexible,
-        'prenoms_flexible': prenoms_flexible
+        'prenoms_flexible': prenoms_flexible,
+        'selected_lieu_naissance_text': selected_lieu_naissance_text,
+        'selected_lieu_deces_text': selected_lieu_deces_text
     }
     return render(request, 'deces/search.html', context)
