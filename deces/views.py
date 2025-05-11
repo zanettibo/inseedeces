@@ -5,16 +5,17 @@ from django.http import JsonResponse
 from django.shortcuts import render
 from django.views.generic import ListView
 from django.http import JsonResponse
-from django.db.models import Q, Value, CharField
+from django.db.models import Q, Value, CharField, Case, When, OuterRef, Subquery
 from django.db.models.functions import Concat
 from .models import Deces, Commune, Region, Departement, Pays
 from django.views.decorators.cache import cache_page
 from django.core.paginator import Paginator
-from django.db.models import Q
 import requests
 from .models import Deces, ImportHistory
 from django.views.decorators.http import require_http_methods
 from django.views.decorators.cache import cache_page
+from django.core.cache import cache
+from .tasks import process_insee_file
 
 def rate_limit(key_prefix, limit=60):
     def decorator(view_func):
@@ -412,8 +413,51 @@ def search(request):
             'prenoms': 'prenoms',
             'date_naissance': 'date_naissance',
             'date_deces': 'date_deces',
-            'lieu_deces': 'lieu_deces'
+            'lieu_deces': 'lieu_deces_nom',
+            'lieu_naissance': 'lieu_naissance_nom'
         }
+
+        # Ajouter les annotations pour le tri sur les noms de lieux
+        results = results.annotate(
+            lieu_naissance_nom=Case(
+                When(lieu_naissance__startswith='99',
+                     then=Subquery(
+                         Pays.objects.filter(cog=OuterRef('lieu_naissance'))
+                         .values('libcog')[:1]
+                     )),
+                default=Concat(
+                    Subquery(
+                        Commune.objects.filter(com=OuterRef('lieu_naissance'))
+                        .values('libelle')[:1]
+                    ),
+                    Value(', '),
+                    Subquery(
+                        Commune.objects.filter(com=OuterRef('lieu_naissance'))
+                        .values('dep__libelle')[:1]
+                    ),
+                    output_field=CharField()
+                )
+            ),
+            lieu_deces_nom=Case(
+                When(lieu_deces__startswith='99',
+                     then=Subquery(
+                         Pays.objects.filter(cog=OuterRef('lieu_deces'))
+                         .values('libcog')[:1]
+                     )),
+                default=Concat(
+                    Subquery(
+                        Commune.objects.filter(com=OuterRef('lieu_deces'))
+                        .values('libelle')[:1]
+                    ),
+                    Value(', '),
+                    Subquery(
+                        Commune.objects.filter(com=OuterRef('lieu_deces'))
+                        .values('dep__libelle')[:1]
+                    ),
+                    output_field=CharField()
+                )
+            )
+        )
 
         if order_by in valid_fields:
             order_field = valid_fields[order_by]
@@ -473,4 +517,9 @@ def search(request):
         'selected_lieu_naissance_text': selected_lieu_naissance_text,
         'selected_lieu_deces_text': selected_lieu_deces_text
     }
-    return render(request, 'deces/search.html', context)
+    response = render(request, 'deces/search.html', context)
+    # Désactiver le cache pour cette vue
+    response['Cache-Control'] = 'no-store, no-cache, must-revalidate, max-age=0'
+    response['Pragma'] = 'no-cache'
+    response['Expires'] = '0'
+    return response
