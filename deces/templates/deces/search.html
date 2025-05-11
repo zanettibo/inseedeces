@@ -260,6 +260,14 @@
                                         </a>
                                     </th>
                                     <th>
+                                        <a href="?{% for key, value in request.GET.items %}{% if key != 'order_by' and key != 'order_dir' %}{{ key }}={{ value }}&{% endif %}{% endfor %}order_by=lieu_naissance&order_dir={% if order_by == 'lieu_naissance' and order_dir == 'asc' %}desc{% else %}asc{% endif %}" class="text-dark text-decoration-none">
+                                            Lieu de naissance
+                                            {% if order_by == 'lieu_naissance' %}
+                                                <i class="bi bi-arrow-{% if order_dir == 'asc' %}up{% else %}down{% endif %}-short"></i>
+                                            {% endif %}
+                                        </a>
+                                    </th>
+                                    <th>
                                         <a href="?{% for key, value in request.GET.items %}{% if key != 'order_by' and key != 'order_dir' %}{{ key }}={{ value }}&{% endif %}{% endfor %}order_by=date_deces&order_dir={% if order_by == 'date_deces' and order_dir == 'asc' %}desc{% else %}asc{% endif %}" class="text-dark text-decoration-none">
                                             Date de décès
                                             {% if order_by == 'date_deces' %}
@@ -275,14 +283,6 @@
                                             {% endif %}
                                         </a>
                                     </th>
-                                    <th>
-                                        <a href="?{% for key, value in request.GET.items %}{% if key != 'order_by' and key != 'order_dir' %}{{ key }}={{ value }}&{% endif %}{% endfor %}order_by=lieu_naissance&order_dir={% if order_by == 'lieu_naissance' and order_dir == 'asc' %}desc{% else %}asc{% endif %}" class="text-dark text-decoration-none">
-                                            Lieu de naissance
-                                            {% if order_by == 'lieu_naissance' %}
-                                                <i class="bi bi-arrow-{% if order_dir == 'asc' %}up{% else %}down{% endif %}-short"></i>
-                                            {% endif %}
-                                        </a>
-                                    </th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -291,7 +291,6 @@
                                     <td>{{ deces.nom }}</td>
                                     <td>{{ deces.prenoms }}</td>
                                     <td>{{ deces.date_naissance|date:"d/m/Y" }}</td>
-                                    <td>{{ deces.date_deces|date:"d/m/Y" }}</td>
                                     <td>
                                         {% with lieu=deces.lieu_naissance_detail %}
                                             {% if lieu %}
@@ -305,6 +304,7 @@
                                             {% endif %}
                                         {% endwith %}
                                     </td>
+                                    <td>{{ deces.date_deces|date:"d/m/Y" }}</td>
                                     <td>
                                         {% with lieu=deces.lieu_deces_detail %}
                                             {% if lieu %}
