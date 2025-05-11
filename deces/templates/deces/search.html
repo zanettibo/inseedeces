@@ -132,7 +132,7 @@
                                 <input type="text" name="nom" id="nom" class="form-control" value="{{ nom }}">
                                 <div class="input-group-text">
                                     <div class="form-check mb-0">
-                                        <input type="checkbox" name="nom_flexible" id="nom_flexible" class="form-check-input" {% if nom_flexible %}checked{% endif %}>
+                                        <input type="checkbox" name="nom_flexible" id="nom_flexible" class="form-check-input" {% if nom_flexible == 'on' %}checked{% endif %}>
                                         <label class="form-check-label" for="nom_flexible">Recherche flexible</label>
                                     </div>
                                 </div>
@@ -144,7 +144,7 @@
                                 <input type="text" name="prenoms" id="prenoms" class="form-control" value="{{ prenoms }}">
                                 <div class="input-group-text">
                                     <div class="form-check mb-0">
-                                        <input type="checkbox" name="prenoms_flexible" id="prenoms_flexible" class="form-check-input" {% if prenoms_flexible %}checked{% endif %}>
+                                        <input type="checkbox" name="prenoms_flexible" id="prenoms_flexible" class="form-check-input" {% if prenoms_flexible == 'on' %}checked{% endif %}>
                                         <label class="form-check-label" for="prenoms_flexible">Recherche flexible</label>
                                     </div>
                                 </div>
@@ -329,19 +329,19 @@
                         <ul class="pagination justify-content-center">
                             {% if page_obj.number != 1 %}
                                 <li class="page-item">
-                                    <a class="page-link" href="?nom={{ nom }}&prenoms={{ prenoms }}&sexe={{ sexe }}&date_naissance_debut={{ date_naissance_debut }}&date_naissance_fin={{ date_naissance_fin }}&date_deces_debut={{ date_deces_debut }}&date_deces_fin={{ date_deces_fin }}&page=1&order_by={{ order_by }}&order_dir={{ order_dir }}" title="Première page">&laquo;</a>
+                                    <a class="page-link" href="?nom={{ nom }}&nom_flexible={{ nom_flexible }}&prenoms={{ prenoms }}&prenoms_flexible={{ prenoms_flexible }}&sexe={{ sexe }}&date_naissance_debut={{ date_naissance_debut }}&date_naissance_fin={{ date_naissance_fin }}&date_deces_debut={{ date_deces_debut }}&date_deces_fin={{ date_deces_fin }}&page=1&order_by={{ order_by }}&order_dir={{ order_dir }}" title="Première page">&laquo;</a>
                                 </li>
                             {% endif %}
                             {% if page_obj.has_previous %}
                                 {% with prev_10=page_obj.number|add:'-10' %}
                                     {% if prev_10 >= 1 %}
                                         <li class="page-item">
-                                            <a class="page-link" href="?nom={{ nom }}&prenoms={{ prenoms }}&sexe={{ sexe }}&date_naissance_debut={{ date_naissance_debut }}&date_naissance_fin={{ date_naissance_fin }}&date_deces_debut={{ date_deces_debut }}&date_deces_fin={{ date_deces_fin }}&page={{ prev_10 }}&order_by={{ order_by }}&order_dir={{ order_dir }}" title="Reculer de 10 pages">-10</a>
+                                            <a class="page-link" href="?nom={{ nom }}&nom_flexible={{ nom_flexible }}&prenoms={{ prenoms }}&prenoms_flexible={{ prenoms_flexible }}&sexe={{ sexe }}&date_naissance_debut={{ date_naissance_debut }}&date_naissance_fin={{ date_naissance_fin }}&date_deces_debut={{ date_deces_debut }}&date_deces_fin={{ date_deces_fin }}&page={{ prev_10 }}&order_by={{ order_by }}&order_dir={{ order_dir }}" title="Reculer de 10 pages">-10</a>
                                         </li>
                                     {% endif %}
                                 {% endwith %}
                                 <li class="page-item">
-                                    <a class="page-link" href="?nom={{ nom }}&prenoms={{ prenoms }}&sexe={{ sexe }}&date_naissance_debut={{ date_naissance_debut }}&date_naissance_fin={{ date_naissance_fin }}&date_deces_debut={{ date_deces_debut }}&date_deces_fin={{ date_deces_fin }}&page={{ page_obj.previous_page_number }}&order_by={{ order_by }}&order_dir={{ order_dir }}">Précédent</a>
+                                    <a class="page-link" href="?nom={{ nom }}&nom_flexible={{ nom_flexible }}&prenoms={{ prenoms }}&prenoms_flexible={{ prenoms_flexible }}&sexe={{ sexe }}&date_naissance_debut={{ date_naissance_debut }}&date_naissance_fin={{ date_naissance_fin }}&date_deces_debut={{ date_deces_debut }}&date_deces_fin={{ date_deces_fin }}&page={{ page_obj.previous_page_number }}&order_by={{ order_by }}&order_dir={{ order_dir }}">Précédent</a>
                                 </li>
                             {% endif %}
 
@@ -352,26 +352,26 @@
                                     </li>
                                 {% elif i > page_obj.number|add:'-3' and i < page_obj.number|add:'3' %}
                                     <li class="page-item">
-                                        <a class="page-link" href="?nom={{ nom }}&prenoms={{ prenoms }}&sexe={{ sexe }}&date_naissance_debut={{ date_naissance_debut }}&date_naissance_fin={{ date_naissance_fin }}&date_deces_debut={{ date_deces_debut }}&date_deces_fin={{ date_deces_fin }}&page={{ i }}&order_by={{ order_by }}&order_dir={{ order_dir }}">{{ i }}</a>
+                                        <a class="page-link" href="?nom={{ nom }}&nom_flexible={{ nom_flexible }}&prenoms={{ prenoms }}&prenoms_flexible={{ prenoms_flexible }}&sexe={{ sexe }}&date_naissance_debut={{ date_naissance_debut }}&date_naissance_fin={{ date_naissance_fin }}&date_deces_debut={{ date_deces_debut }}&date_deces_fin={{ date_deces_fin }}&page={{ i }}&order_by={{ order_by }}&order_dir={{ order_dir }}">{{ i }}</a>
                                     </li>
                                 {% endif %}
                             {% endfor %}
 
                             {% if page_obj.has_next %}
                                 <li class="page-item">
-                                    <a class="page-link" href="?nom={{ nom }}&prenoms={{ prenoms }}&sexe={{ sexe }}&date_naissance_debut={{ date_naissance_debut }}&date_naissance_fin={{ date_naissance_fin }}&date_deces_debut={{ date_deces_debut }}&date_deces_fin={{ date_deces_fin }}&page={{ page_obj.next_page_number }}&order_by={{ order_by }}&order_dir={{ order_dir }}">Suivant</a>
+                                    <a class="page-link" href="?nom={{ nom }}&nom_flexible={{ nom_flexible }}&prenoms={{ prenoms }}&prenoms_flexible={{ prenoms_flexible }}&sexe={{ sexe }}&date_naissance_debut={{ date_naissance_debut }}&date_naissance_fin={{ date_naissance_fin }}&date_deces_debut={{ date_deces_debut }}&date_deces_fin={{ date_deces_fin }}&page={{ page_obj.next_page_number }}&order_by={{ order_by }}&order_dir={{ order_dir }}">Suivant</a>
                                 </li>
                                 {% with next_10=page_obj.number|add:'10' %}
                                     {% if next_10 <= page_obj.paginator.num_pages %}
                                         <li class="page-item">
-                                            <a class="page-link" href="?nom={{ nom }}&prenoms={{ prenoms }}&sexe={{ sexe }}&date_naissance_debut={{ date_naissance_debut }}&date_naissance_fin={{ date_naissance_fin }}&date_deces_debut={{ date_deces_debut }}&date_deces_fin={{ date_deces_fin }}&page={{ next_10 }}&order_by={{ order_by }}&order_dir={{ order_dir }}" title="Avancer de 10 pages">+10</a>
+                                            <a class="page-link" href="?nom={{ nom }}&nom_flexible={{ nom_flexible }}&prenoms={{ prenoms }}&prenoms_flexible={{ prenoms_flexible }}&sexe={{ sexe }}&date_naissance_debut={{ date_naissance_debut }}&date_naissance_fin={{ date_naissance_fin }}&date_deces_debut={{ date_deces_debut }}&date_deces_fin={{ date_deces_fin }}&page={{ next_10 }}&order_by={{ order_by }}&order_dir={{ order_dir }}" title="Avancer de 10 pages">+10</a>
                                         </li>
                                     {% endif %}
                                 {% endwith %}
                             {% endif %}
                             {% if page_obj.number != page_obj.paginator.num_pages %}
                                 <li class="page-item">
-                                    <a class="page-link" href="?nom={{ nom }}&prenoms={{ prenoms }}&sexe={{ sexe }}&date_naissance_debut={{ date_naissance_debut }}&date_naissance_fin={{ date_naissance_fin }}&date_deces_debut={{ date_deces_debut }}&date_deces_fin={{ date_deces_fin }}&page={{ page_obj.paginator.num_pages }}&order_by={{ order_by }}&order_dir={{ order_dir }}" title="Dernière page">&raquo;</a>
+                                    <a class="page-link" href="?nom={{ nom }}&nom_flexible={{ nom_flexible }}&prenoms={{ prenoms }}&prenoms_flexible={{ prenoms_flexible }}&sexe={{ sexe }}&date_naissance_debut={{ date_naissance_debut }}&date_naissance_fin={{ date_naissance_fin }}&date_deces_debut={{ date_deces_debut }}&date_deces_fin={{ date_deces_fin }}&page={{ page_obj.paginator.num_pages }}&order_by={{ order_by }}&order_dir={{ order_dir }}" title="Dernière page">&raquo;</a>
                                 </li>
                             {% endif %}
                         </ul>

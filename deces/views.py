@@ -320,9 +320,9 @@ class SearchView(ListView):
 def search(request):
     # Récupérer les paramètres de recherche
     nom = request.GET.get('nom', '')
-    nom_flexible = request.GET.get('nom_flexible') == 'on'
+    nom_flexible = request.GET.get('nom_flexible')
     prenoms = request.GET.get('prenoms', '')
-    prenoms_flexible = request.GET.get('prenoms_flexible') == 'on'
+    prenoms_flexible = request.GET.get('prenoms_flexible')
     sexe = request.GET.get('sexe', '')
     date_naissance_debut = request.GET.get('date_naissance_debut', '')
     date_naissance_fin = request.GET.get('date_naissance_fin', '')
@@ -352,12 +352,12 @@ def search(request):
 
         # Appliquer les filtres si présents
         if nom:
-            if nom_flexible:
+            if nom_flexible == 'on':
                 results = results.filter(nom__contains=nom.upper())
             else:
                 results = results.filter(nom=nom.upper())
         if prenoms:
-            if prenoms_flexible:
+            if prenoms_flexible == 'on':
                 results = results.filter(prenoms__contains=prenoms.upper())
             else:
                 results = results.filter(prenoms=prenoms.upper())
