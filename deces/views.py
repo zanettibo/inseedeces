@@ -413,13 +413,13 @@ def search(request):
             'prenoms': 'prenoms',
             'date_naissance': 'date_naissance',
             'date_deces': 'date_deces',
-            'lieu_deces': 'lieu_deces_nom',
-            'lieu_naissance': 'lieu_naissance_nom'
+            'lieu_deces': 'lieu_deces_nom_resolue',
+            'lieu_naissance': 'lieu_naissance_nom_resolue'
         }
 
         # Ajouter les annotations pour le tri sur les noms de lieux
         results = results.annotate(
-            lieu_naissance_nom=Case(
+            lieu_naissance_nom_resolue=Case(
                 When(lieu_naissance__startswith='99',
                      then=Subquery(
                          Pays.objects.filter(cog=OuterRef('lieu_naissance'))
@@ -438,7 +438,7 @@ def search(request):
                     output_field=CharField()
                 )
             ),
-            lieu_deces_nom=Case(
+            lieu_deces_nom_resolue=Case(
                 When(lieu_deces__startswith='99',
                      then=Subquery(
                          Pays.objects.filter(cog=OuterRef('lieu_deces'))
