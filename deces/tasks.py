@@ -14,6 +14,10 @@ from celery.utils.log import get_task_logger
 
 logger = get_task_logger(__name__)
 
+# Configuration pour l'optimisation des imports
+BATCH_SIZE = 5000  # Nombre d'enregistrements à insérer en une fois
+CHUNK_SIZE = 10000  # Nombre de lignes à lire du CSV en une fois
+
 def parse_insee_date(date_str):
     """Convertit une date INSEE (AAAAMMJJ) en objet date."""
     if not date_str or not date_str.strip('"'):
@@ -166,49 +170,64 @@ def process_insee_file(self, zip_url, zip_filename):
 
                 # Extraire et traiter le fichier CSV
                 with zip_ref.open(csv_file) as f:
-                    df = pd.read_csv(f, sep=';', dtype=str)
-                    records = len(df)
-                    import_history.total_records = records
-                    import_history.status = 'processing'
-                    import_history.save()
-                    logger.info(f'Nombre total d\'enregistrements à traiter : {records}')
+                    # Utiliser chunks pour lire le CSV par morceaux
+                    chunks = pd.read_csv(f, sep=';', dtype=str, chunksize=CHUNK_SIZE)
+                    records = 0
                     error_count = 0
-                    for index, row in df.iterrows():
-                        try:
-                            # Parser la ligne
-                            parsed_data, error = parse_row(row)
-                            if error:
-                                error_count += 1
-                                logger.warning(f'Ligne {index+1} ignorée : {error}\nDonnées : {row}')
-                                continue
+                    deces_batch = []
 
-                            # Créer et sauvegarder l'enregistrement Deces
-                            deces = Deces(
-                                nom=parsed_data['nom'],
-                                prenoms=parsed_data['prenoms'],
-                                sexe=parsed_data['sexe'],
-                                date_naissance=parsed_data['date_naissance'],
-                                lieu_naissance=parsed_data['lieu_naissance'],
-                                date_deces=parsed_data['date_deces'],
-                                lieu_deces=parsed_data['lieu_deces'],
-                                acte_deces=parsed_data['acte_deces']
-                            )
-                            deces.save()
-                            records_processed += 1
-                        except Exception as row_error:
-                            error_count += 1
-                            logger.error(f'Erreur ligne {index+1}: {str(row_error)}\nDonnées: {row}')
-                            if error_count > 100:
-                                raise Exception(f'Trop d\'erreurs ({error_count}), import arrêté')
-                        if index % 1000 == 0:
-                            import_history.records_processed = records_processed
-                            import_history.save()
-                            logger.info(f'Progression : {records_processed}/{records} ({(records_processed/records*100):.1f}%)')
+                    for chunk in chunks:
+                        records += len(chunk)
+                        for index, row in chunk.iterrows():
+                            try:
+                                # Parser la ligne
+                                parsed_data, error = parse_row(row)
+                                if error:
+                                    error_count += 1
+                                    logger.warning(f'Ligne {index+1} ignorée : {error}\nDonnées : {row}')
+                                    continue
+
+                                # Créer l'objet Deces sans le sauvegarder
+                                deces = Deces(
+                                    nom=parsed_data['nom'],
+                                    prenoms=parsed_data['prenoms'],
+                                    sexe=parsed_data['sexe'],
+                                    date_naissance=parsed_data['date_naissance'],
+                                    lieu_naissance=parsed_data['lieu_naissance'],
+                                    date_deces=parsed_data['date_deces'],
+                                    lieu_deces=parsed_data['lieu_deces'],
+                                    acte_deces=parsed_data['acte_deces']
+                                )
+                                deces_batch.append(deces)
+                                records_processed += 1
+
+                                # Insérer par lot quand on atteint BATCH_SIZE
+                                if len(deces_batch) >= BATCH_SIZE:
+                                    Deces.objects.bulk_create(deces_batch)
+                                    deces_batch = []
+                            except Exception as row_error:
+                                error_count += 1
+                                logger.error(f'Erreur ligne {index+1}: {str(row_error)}\nDonnées: {row}')
+                                if error_count > 100:
+                                    raise Exception(f'Trop d\'erreurs ({error_count}), import arrêté')
+                            
+                            if index % 1000 == 0:
+                                import_history.records_processed = records_processed
+                                import_history.save()
+                                logger.info(f'Progression : {records_processed}/{records} ({(records_processed/records*100):.1f}%)')
+                        
+                        # Insérer les derniers enregistrements du chunk
+                        if deces_batch:
+                            Deces.objects.bulk_create(deces_batch)
+                            deces_batch = []
+
+                    import_history.total_records = records
                     import_history.records_processed = records_processed
                     import_history.save()
-                if records_processed < records * 0.9:  # Si moins de 90% des enregistrements ont été traités
-                    raise Exception(f'Import incomplet : seulement {records_processed}/{records} enregistrements traités')
-                logger.info(f'Import terminé : {records_processed} enregistrements traités, {error_count} erreurs')
+
+                    if records_processed < records * 0.9:  # Si moins de 90% des enregistrements ont été traités
+                        raise Exception(f'Import incomplet : seulement {records_processed}/{records} enregistrements traités')
+                    logger.info(f'Import terminé : {records_processed} enregistrements traités, {error_count} erreurs')
 
     except Exception as e:
         logger.error(f'Erreur lors du traitement : {str(e)}')
