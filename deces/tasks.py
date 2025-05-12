@@ -8,11 +8,7 @@ import zipfile
 import pandas as pd
 from datetime import datetime
 from celery import shared_task
-from django.db import transaction
-from django.core.files.storage import default_storage
-from django.utils import timezone
-from django.core.exceptions import ObjectDoesNotExist
-from deces.models import Deces, ImportHistory, Pays, Commune
+from deces.models import Deces, ImportHistory
 import requests
 from celery.utils.log import get_task_logger
 
@@ -204,26 +200,15 @@ def process_insee_file(self, zip_url, zip_filename):
                             logger.error(f'Erreur ligne {index+1}: {str(row_error)}\nDonnées: {row}')
                             if error_count > 100:
                                 raise Exception(f'Trop d\'erreurs ({error_count}), import arrêté')
-
                         if index % 1000 == 0:
                             import_history.records_processed = records_processed
                             import_history.save()
                             logger.info(f'Progression : {records_processed}/{records} ({(records_processed/records*100):.1f}%)')
-                            # Force le commit de la transaction en cours
-                            transaction.commit()
                     import_history.records_processed = records_processed
                     import_history.save()
-                    transaction.commit()
                 if records_processed < records * 0.9:  # Si moins de 90% des enregistrements ont été traités
                     raise Exception(f'Import incomplet : seulement {records_processed}/{records} enregistrements traités')
                 logger.info(f'Import terminé : {records_processed} enregistrements traités, {error_count} erreurs')
-
-        # Nettoyer
-        if os.path.exists(temp_zip.name):
-            try:
-                os.unlink(temp_zip.name)
-            except Exception as e:
-                logger.warning(f'Erreur lors du nettoyage du fichier temporaire {temp_zip.name}: {str(e)}')
 
     except Exception as e:
         logger.error(f'Erreur lors du traitement : {str(e)}')
@@ -238,7 +223,11 @@ def process_insee_file(self, zip_url, zip_filename):
     finally:
         # Nettoyer les fichiers temporaires
         try:
-            os.unlink(temp_zip.name)
+            if os.path.exists(temp_zip.name):
+                try:
+                    os.unlink(temp_zip.name)
+                except Exception as e:
+                    logger.warning(f'Erreur lors du nettoyage du fichier temporaire {temp_zip.name}: {str(e)}')
         except Exception as e:
             logger.error(f'Erreur lors du nettoyage des fichiers temporaires : {str(e)}')
 
