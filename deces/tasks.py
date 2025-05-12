@@ -228,6 +228,7 @@ def process_insee_file(self, zip_url, zip_filename):
 
                     import_history.total_records = records
                     import_history.records_processed = records_processed
+                    import_history.status = 'completed'
                     import_history.save()
 
                     if records_processed < records * 0.9:  # Si moins de 90% des enregistrements ont été traités
