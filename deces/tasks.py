@@ -171,13 +171,18 @@ def process_insee_file(self, zip_url, zip_filename):
                 # Extraire et traiter le fichier CSV
                 with zip_ref.open(csv_file) as f:
                     # Utiliser chunks pour lire le CSV par morceaux
+                    df = pd.read_csv(f, sep=';', dtype=str)
+                    records = len(df)
+                    import_history.total_records = records
+                    import_history.status = 'processing'
+                    import_history.save()
+                    logger.info(f'Nombre total d\'enregistrements à traiter : {records}')
+                    f.seek(0)  # Revenir au début du fichier
                     chunks = pd.read_csv(f, sep=';', dtype=str, chunksize=CHUNK_SIZE)
-                    records = 0
                     error_count = 0
                     deces_batch = []
 
                     for chunk in chunks:
-                        records += len(chunk)
                         for index, row in chunk.iterrows():
                             try:
                                 # Parser la ligne
