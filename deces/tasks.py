@@ -145,6 +145,7 @@ def process_insee_file(self, zip_url, zip_filename):
             
             for csv_file in csv_files:
                 logger.info(f'Traitement du fichier {csv_file}')
+                records_processed = 0
                 # Créer un enregistrement ImportHistory pour ce CSV
                 import_history = ImportHistory.objects.create(
                     zip_url=zip_url,
@@ -175,8 +176,6 @@ def process_insee_file(self, zip_url, zip_filename):
                     import_history.status = 'processing'
                     import_history.save()
                     logger.info(f'Nombre total d\'enregistrements à traiter : {records}')
-
-                    records_processed = 0
                     error_count = 0
                     for index, row in df.iterrows():
                         try:
@@ -215,7 +214,9 @@ def process_insee_file(self, zip_url, zip_filename):
                     import_history.records_processed = records_processed
                     import_history.save()
                     transaction.commit()
-                    logger.info(f'Import terminé : {records_processed} enregistrements traités, {error_count} erreurs')
+                if records_processed < records * 0.9:  # Si moins de 90% des enregistrements ont été traités
+                    raise Exception(f'Import incomplet : seulement {records_processed}/{records} enregistrements traités')
+                logger.info(f'Import terminé : {records_processed} enregistrements traités, {error_count} erreurs')
 
         # Nettoyer
         if os.path.exists(temp_zip.name):
@@ -223,9 +224,6 @@ def process_insee_file(self, zip_url, zip_filename):
                 os.unlink(temp_zip.name)
             except Exception as e:
                 logger.warning(f'Erreur lors du nettoyage du fichier temporaire {temp_zip.name}: {str(e)}')
-        
-        if records_processed < records * 0.9:  # Si moins de 90% des enregistrements ont été traités
-            raise Exception(f'Import incomplet : seulement {records_processed}/{records} enregistrements traités')
 
     except Exception as e:
         logger.error(f'Erreur lors du traitement : {str(e)}')
