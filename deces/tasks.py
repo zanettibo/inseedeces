@@ -203,7 +203,7 @@ def process_insee_file(self, zip_url, zip_filename):
 
                                 # Insérer par lot quand on atteint BATCH_SIZE
                                 if len(deces_batch) >= BATCH_SIZE:
-                                    Deces.objects.bulk_create(deces_batch)
+                                    Deces.objects.bulk_create(deces_batch, ignore_conflicts=True)
                                     deces_batch = []
                             except Exception as row_error:
                                 error_count += 1
@@ -218,7 +218,7 @@ def process_insee_file(self, zip_url, zip_filename):
                         
                         # Insérer les derniers enregistrements du chunk
                         if deces_batch:
-                            Deces.objects.bulk_create(deces_batch)
+                            Deces.objects.bulk_create(deces_batch, ignore_conflicts=True)
                             deces_batch = []
 
                     import_history.total_records = records
