@@ -15,6 +15,7 @@ class Deces(models.Model):
     # Birth information
     date_naissance = models.DateField()
     lieu_naissance = models.CharField(max_length=5)
+    lieu_naissance_nom = models.CharField(max_length=200, null=True, blank=True, default=None)
     
     # Death information - these fields are part of the primary key
     date_deces = models.DateField()
@@ -67,6 +68,7 @@ class Deces(models.Model):
             models.Index(fields=['sexe']),
             models.Index(fields=['date_naissance']),
             models.Index(fields=['lieu_naissance']),
+            models.Index(fields=['lieu_naissance_nom']),
             models.Index(fields=['date_deces']),
             models.Index(fields=['lieu_deces'])
         ]

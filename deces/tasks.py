@@ -78,8 +78,11 @@ def parse_row(row):
             return None, f'Date de décès invalide : {row.get("datedeces")}'
             
         # Nettoyer les autres champs
-        lieu_naissance = row.get('lieunaiss', '')
-        lieu_deces = row.get('lieudeces', '')
+        ln=str(row.get('lieunaiss', ''))
+        lieu_naissance = ln if len(ln) == 5 else '0' + ln
+        lieu_naissance_nom = row.get('commnaiss', '')
+        ld=str(row.get('lieudeces', ''))
+        lieu_deces = ld if len(ld) == 5 else '0' + ld
         acte_deces = row.get('actedeces', '')
 
         # Retourner le dictionnaire avec les données validées
@@ -89,6 +92,7 @@ def parse_row(row):
             'sexe': sexe,
             'date_naissance': date_naissance,
             'lieu_naissance': lieu_naissance,
+            'lieu_naissance_nom': lieu_naissance_nom,
             'date_deces': date_deces,
             'lieu_deces': lieu_deces,
             'acte_deces': acte_deces
@@ -199,6 +203,7 @@ def process_insee_file(self, zip_url, zip_filename):
                                     sexe=parsed_data['sexe'],
                                     date_naissance=parsed_data['date_naissance'],
                                     lieu_naissance=parsed_data['lieu_naissance'],
+                                    lieu_naissance_nom=parsed_data['lieu_naissance_nom'],
                                     date_deces=parsed_data['date_deces'],
                                     lieu_deces=parsed_data['lieu_deces'],
                                     acte_deces=parsed_data['acte_deces']
@@ -208,7 +213,9 @@ def process_insee_file(self, zip_url, zip_filename):
 
                                 # Insérer par lot quand on atteint BATCH_SIZE
                                 if len(deces_batch) >= BATCH_SIZE:
-                                    Deces.objects.bulk_create(deces_batch, ignore_conflicts=True)
+                                    Deces.objects.bulk_create(deces_batch, update_conflicts=True, update_fields=[
+                                        'lieu_naissance', 'lieu_naissance_nom'
+                                    ])
                                     deces_batch = []
                             except Exception as row_error:
                                 error_count += 1
@@ -223,7 +230,9 @@ def process_insee_file(self, zip_url, zip_filename):
                         
                         # Insérer les derniers enregistrements du chunk
                         if deces_batch:
-                            Deces.objects.bulk_create(deces_batch, ignore_conflicts=True)
+                            Deces.objects.bulk_create(deces_batch, update_conflicts=True, update_fields=[
+                                        'lieu_naissance', 'lieu_naissance_nom'
+                                    ])
                             deces_batch = []
 
                     import_history.total_records = records
