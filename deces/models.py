@@ -13,7 +13,7 @@ class Deces(models.Model):
     sexe = models.CharField(max_length=1)
     
     # Birth information
-    date_naissance = models.DateField()
+    date_naissance = models.DateField(null=True)
     lieu_naissance = models.CharField(max_length=5)
     lieu_naissance_nom = models.CharField(max_length=200, null=True, blank=True, default=None)
     

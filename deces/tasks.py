@@ -64,19 +64,25 @@ def parse_row(row):
         
         # Vérifier et nettoyer les champs obligatoires
         sexe = row.get('sexe', '')
-        date_naissance = parse_insee_date(row.get('datenaiss'))
-        date_deces = parse_insee_date(row.get('datedeces'))
+
+        dn = row.get('datenaiss', '')
+        dd = row.get('datedeces', '')
+
+        if dn == "00000000":
+            date_naissance = None
+        else:
+            date_naissance = parse_insee_date(dn)
+            if not date_naissance:
+                return None, f'Date de naissance invalide : {dn}'
+
+        date_deces = parse_insee_date(dd)
+        if not date_deces:
+            return None, f'Date de décès invalide : {dd}'
         
         # Vérifier les champs obligatoires
         if not sexe in ['1', '2']:
             return None, f'Sexe invalide : {sexe} (doit être 1 ou 2)'
-        
-        if not date_naissance:
-            return None, f'Date de naissance invalide : {row.get("datenaiss")}'
-            
-        if not date_deces:
-            return None, f'Date de décès invalide : {row.get("datedeces")}'
-            
+
         # Nettoyer les autres champs
         ln=str(row.get('lieunaiss', ''))
         lieu_naissance = ln if len(ln) == 5 else '0' + ln

@@ -290,7 +290,7 @@
                                 <tr>
                                     <td>{{ deces.nom }}</td>
                                     <td>{{ deces.prenoms }}</td>
-                                    <td>{{ deces.date_naissance|date:"d/m/Y" }}</td>
+                                    <td>{{ deces.date_naissance|date:"d/m/Y"|default:"INCONNUE" }}</td>
                                     <td>
                                         {% with lieu=deces.lieu_naissance_detail %}
                                             {% if lieu %}
