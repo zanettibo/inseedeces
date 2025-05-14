@@ -1,5 +1,3 @@
-import os
-import hashlib
 from django.db.models import Sum
 from django.http import JsonResponse
 from django.shortcuts import render, redirect, get_object_or_404
@@ -14,7 +12,6 @@ from django.db.models.functions import Concat
 from .models import Deces, Commune, Region, Departement, Pays
 from django.views.decorators.cache import cache_page
 from django.core.paginator import Paginator
-import requests
 from .models import Deces, ImportHistory, DecesImportError
 from django.views.decorators.http import require_http_methods
 from django.views.decorators.cache import cache_page

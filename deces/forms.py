@@ -9,7 +9,14 @@ class ImportErrorForm(forms.ModelForm):
         widgets = {
             'nom': forms.TextInput(attrs={'class': 'form-control'}),
             'prenoms': forms.TextInput(attrs={'class': 'form-control'}),
-            'sexe': forms.Select(attrs={'class': 'form-control'}),
+            'sexe': forms.Select(
+                attrs={'class': 'form-select'},
+                choices=[
+                    ('', 'Non spécifié'),
+                    ('1', 'Masculin'),
+                    ('2', 'Féminin')
+                ]
+            ),
             'date_naissance': forms.DateInput(attrs={'type': 'date', 'class': 'form-control'}),
             'date_deces': forms.DateInput(attrs={'type': 'date', 'class': 'form-control'}),
             'lieu_naissance': forms.TextInput(attrs={'class': 'form-control'}),
