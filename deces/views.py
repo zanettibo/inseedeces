@@ -102,7 +102,8 @@ def import_status(request, import_id):
             'records_processed': import_history.records_processed,
             'total_records': import_history.total_records,
             'error_message': import_history.error_message,
-            'csv_filename': import_history.csv_filename
+            'csv_filename': import_history.csv_filename,
+            'pending_errors': import_history.pending_errors
         })
     except ImportHistory.DoesNotExist:
         return JsonResponse({'error': 'Import non trouvé'}, status=404)

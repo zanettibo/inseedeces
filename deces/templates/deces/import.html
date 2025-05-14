@@ -80,13 +80,17 @@
                                 </td>
                                 <td>{{ import.total_records }}</td>
                                 <td>
-                                    {% with pending_errors=import.pending_errors %}
-                                    <a href="{% url 'deces:import-error-list' %}?import_id={{ import.id }}&status=unresolved" class="text-decoration-none">
-                                        <span class="badge {% if pending_errors == 0 %}bg-success{% else %}bg-danger{% endif %}">
-                                            {{ pending_errors }}
-                                        </span>
-                                    </a>
-                                    {% endwith %}
+                                    {% if import.status == 'completed' %}
+                                        {% with pending_errors=import.pending_errors %}
+                                        <a href="{% url 'deces:import-error-list' %}?import_id={{ import.id }}&status=unresolved" class="text-decoration-none">
+                                            <span class="badge {% if pending_errors == 0 %}bg-success{% else %}bg-danger{% endif %}">
+                                                {{ pending_errors }}
+                                            </span>
+                                        </a>
+                                        {% endwith %}
+                                    {% else %}
+                                        <span class="badge bg-secondary">-</span>
+                                    {% endif %}
                                 </td>
                             </tr>
                             {% if import.error_message %}
@@ -140,7 +144,8 @@ function updateImportStatus(importId) {
             if (row) {
                 const statusBadge = row.querySelector('.status-badge');
                 const progressBar = row.querySelector('.progress-bar');
-                const currentFileCell = row.querySelector('.current-file');
+                const progressText = row.querySelector('.progress .text-dark strong');
+                const errorCell = row.querySelector('td:last-child');
                 
                 // Mettre à jour le statut
                 statusBadge.className = `status-badge badge ${
@@ -152,35 +157,37 @@ function updateImportStatus(importId) {
                 
                 // Mettre à jour la progression
                 if (data.total_records > 0) {
-                    // Mettre à jour la barre de progression
                     const progress = (data.records_processed / data.total_records) * 100;
                     progressBar.style.width = `${progress}%`;
                     progressBar.setAttribute('aria-valuemin', 0);
                     progressBar.setAttribute('aria-valuemax', 100);
                     progressBar.setAttribute('aria-valuenow', progress);
-                    const progressText = progressBar.parentElement.querySelector('span') || document.createElement('span');
-                    progressText.className = 'text-dark position-absolute w-100 text-center';
-                    progressText.style.zIndex = '1';
-                    progressText.innerHTML = `<strong>${progress.toFixed(1)}%</strong>`;
-                    if (!progressBar.parentElement.querySelector('span')) {
-                        progressBar.parentElement.appendChild(progressText);
-                    }
-
-                    // Mettre à jour le total
-                    const totalCell = row.querySelector('td:last-child');
-                    if (totalCell) {
-                        totalCell.textContent = data.total_records;
+                    const progressText = progressBar.parentElement.querySelector('span');
+                    if (progressText) {
+                        progressText.innerHTML = `<strong>${progress.toFixed(1)}%</strong>`;
                     }
                 }
-                
 
-                
-                // Continuer la mise à jour si toujours en cours
+                // Mettre à jour le compteur d'erreurs
+                if (data.status === 'completed') {
+                    errorCell.innerHTML = `
+                        <a href="/import/errors/?import_id=${importId}&status=unresolved" class="text-decoration-none">
+                            <span class="badge ${data.pending_errors === 0 ? 'bg-success' : 'bg-danger'}">
+                                ${data.pending_errors}
+                            </span>
+                        </a>
+                    `;
+                } else {
+                    errorCell.innerHTML = '<span class="badge bg-secondary">-</span>';
+                }
+
+                // Continuer la mise à jour si l'import est toujours en cours
                 if (data.status === 'processing') {
                     setTimeout(() => updateImportStatus(importId), 2000);
                 }
             }
-        });
+        })
+        .catch(error => console.error('Erreur lors de la mise à jour du statut:', error));
 }
 
 // Fonction pour mettre à jour les statistiques globales
