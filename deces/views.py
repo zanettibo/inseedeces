@@ -20,6 +20,7 @@ from django.views.decorators.http import require_http_methods
 from django.views.decorators.cache import cache_page
 from django.core.cache import cache
 from .tasks import process_insee_file
+from .forms import ImportErrorForm
 
 def rate_limit(key_prefix, limit=60):
     def decorator(view_func):
@@ -586,8 +587,7 @@ class ImportErrorDetailView(LoginRequiredMixin, DetailView):
 class ImportErrorUpdateView(LoginRequiredMixin, UpdateView):
     model = DecesImportError
     template_name = 'deces/import_error_form.html'
-    fields = ['nom', 'prenoms', 'sexe', 'date_naissance', 'lieu_naissance',
-             'lieu_naissance_nom', 'date_deces', 'lieu_deces', 'acte_deces']
+    form_class = ImportErrorForm
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
