@@ -600,7 +600,7 @@ class ImportErrorUpdateView(LoginRequiredMixin, UpdateView):
         if success:
             messages.success(self.request, 'Les données ont été corrigées et importées avec succès.')
         else:
-            messages.error(self.request, f'Erreur lors de la réimportation : {error}')
+            messages.add_message(self.request, messages.ERROR, f'Erreur lors de la réimportation : {error}', extra_tags='danger')
         return response
 
 @login_required
@@ -611,6 +611,6 @@ def retry_import_error(request, pk):
     if success:
         messages.success(request, 'Les données ont été réimportées avec succès.')
     else:
-        messages.error(request, f'Erreur lors de la réimportation : {error_message}')
+        messages.add_message(request, messages.ERROR, f'Erreur lors de la réimportation : {error_message}', extra_tags='danger')
     
     return redirect('deces:import-error-detail', pk=pk)
