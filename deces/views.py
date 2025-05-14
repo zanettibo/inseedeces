@@ -7,7 +7,7 @@ from django.urls import reverse
 from django.contrib import messages
 from django.views.generic import ListView, UpdateView, DetailView
 from django.http import JsonResponse
-from django.db.models import Q, Value, CharField, Case, When, OuterRef, Subquery
+from django.db.models import Q, Value, CharField, Case, When, OuterRef, Subquery, F
 from django.db.models.functions import Concat
 from .models import Deces, Commune, Region, Departement, Pays
 from django.views.decorators.cache import cache_page
@@ -309,11 +309,20 @@ class SearchView(ListView):
         # Trier les résultats
         order_by = self.request.GET.get('order_by', 'nom')
         order_dir = self.request.GET.get('order_dir', 'asc')
+        direction = '-' if order_dir == 'desc' else ''
         
-        if order_dir == 'desc':
-            order_by = f'-{order_by}'
+        if order_by == 'lieu_naissance':
+            queryset = queryset.annotate(
+                lieu_naissance_sort=Case(
+                    When(lieu_naissance__startswith='99', then=F('lieu_naissance_nom')),
+                    default=F('lieu_naissance'),
+                    output_field=CharField(),
+                )
+            ).order_by(f'{direction}lieu_naissance_sort')
+        else:
+            queryset = queryset.order_by(f'{direction}{order_by}')
         
-        return queryset.order_by(order_by)
+        return queryset
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
@@ -424,9 +433,14 @@ def search(request):
         results = results.annotate(
             lieu_naissance_nom_resolue=Case(
                 When(lieu_naissance__startswith='99',
-                     then=Subquery(
-                         Pays.objects.filter(cog=OuterRef('lieu_naissance'))
-                         .values('libcog')[:1]
+                     then=Concat(
+                         F('lieu_naissance_nom'),
+                         Value(', '),
+                         Subquery(
+                             Pays.objects.filter(cog=OuterRef('lieu_naissance'))
+                             .values('libcog')[:1]
+                         ),
+                         output_field=CharField()
                      )),
                 default=Concat(
                     Subquery(
