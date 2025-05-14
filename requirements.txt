@@ -12,3 +12,8 @@ whitenoise>=6.6.0
 django-redis>=5.4.0  # For caching
 sqlparse>=0.5.0 # not directly required, pinned by Snyk to avoid a vulnerability
 zipp>=3.19.1 # not directly required, pinned by Snyk to avoid a vulnerability
+
+# Authentication dependencies
+django-allauth>=0.60.1
+PyJWT>=2.8.0
+cryptography>=42.0.5

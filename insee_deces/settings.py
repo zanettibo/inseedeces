@@ -51,10 +51,15 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    'django.contrib.sites',
     'django.contrib.humanize',
     'django_celery_results',
     'deces',
     'deces.templatetags',
+    'allauth',
+    'allauth.account',
+    'allauth.socialaccount',
+    'allauth.socialaccount.providers.google',
 ]
 
 MIDDLEWARE = [
@@ -67,6 +72,7 @@ MIDDLEWARE = [
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
     'django.middleware.http.ConditionalGetMiddleware',
+    'allauth.account.middleware.AccountMiddleware',
 ]
 
 # Security settings
@@ -119,6 +125,37 @@ TEMPLATES = [
         },
     },
 ]
+
+# django-allauth configuration
+SITE_ID = 1
+AUTHENTICATION_BACKENDS = [
+    'django.contrib.auth.backends.ModelBackend',
+    'allauth.account.auth_backends.AuthenticationBackend',
+]
+ACCOUNT_LOGIN_METHODS = {'email'}
+ACCOUNT_SIGNUP_FIELDS = ['email*', 'password1*', 'password2*']
+ACCOUNT_EMAIL_VERIFICATION = 'none'  # On désactive la vérification par email pour l'instant
+LOGIN_REDIRECT_URL = '/import/'
+LOGOUT_REDIRECT_URL = '/'
+ACCOUNT_LOGOUT_ON_GET = True  # Permet la déconnexion directe sans confirmation
+
+# Templates personnalisés pour django-allauth
+ACCOUNT_TEMPLATE_EXTENSION = 'html'
+ACCOUNT_DEFAULT_HTTP_PROTOCOL = 'http'  # Changer en https en production
+
+# Configuration des providers sociaux
+SOCIALACCOUNT_PROVIDERS = {
+    'google': {
+        'SCOPE': [
+            'profile',
+            'email',
+        ],
+        'AUTH_PARAMS': {
+            'access_type': 'online',
+        }
+    }
+}
+
 
 WSGI_APPLICATION = 'insee_deces.wsgi.application'
 

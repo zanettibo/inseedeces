@@ -3,6 +3,8 @@ import hashlib
 from django.db.models import Sum
 from django.http import JsonResponse
 from django.shortcuts import render, redirect, get_object_or_404
+from django.contrib.auth.decorators import login_required
+from django.contrib.auth.mixins import LoginRequiredMixin
 from django.urls import reverse
 from django.contrib import messages
 from django.views.generic import ListView, UpdateView, DetailView
@@ -58,6 +60,7 @@ def parse_insee_date(date_str):
 def index(request):
     return render(request, 'deces/index.html')
 
+@login_required
 def import_data(request):
     if request.method == 'POST':
         url = request.POST.get('url')
@@ -93,6 +96,7 @@ def import_data(request):
 
 @rate_limit('import_status', limit=300)  # 8 imports × 30 updates/minute = 240 + marge
 @require_http_methods(['GET'])
+@login_required
 def import_status(request, import_id):
     try:
         import_history = ImportHistory.objects.get(id=import_id)
@@ -111,6 +115,7 @@ def import_status(request, import_id):
 @rate_limit('import_stats', limit=300)
 @require_http_methods(['GET'])
 @cache_page(2)  # Cache for 2 seconds
+@login_required
 def import_stats(request):
     stats = ImportHistory.objects.filter(status__in=['completed', 'processing']).aggregate(
         processed=Sum('records_processed'),
@@ -545,7 +550,7 @@ def search(request):
     response['Expires'] = '0'
     return response
 
-class ImportErrorListView(ListView):
+class ImportErrorListView(LoginRequiredMixin, ListView):
     model = DecesImportError
     template_name = 'deces/import_error_list.html'
     context_object_name = 'errors'
@@ -573,12 +578,12 @@ class ImportErrorListView(ListView):
         context['import_id'] = self.request.GET.get('import_id', '')
         return context
 
-class ImportErrorDetailView(DetailView):
+class ImportErrorDetailView(LoginRequiredMixin, DetailView):
     model = DecesImportError
     template_name = 'deces/import_error_detail.html'
     context_object_name = 'error'
 
-class ImportErrorUpdateView(UpdateView):
+class ImportErrorUpdateView(LoginRequiredMixin, UpdateView):
     model = DecesImportError
     template_name = 'deces/import_error_form.html'
     fields = ['nom', 'prenoms', 'sexe', 'date_naissance', 'lieu_naissance',
@@ -601,6 +606,7 @@ class ImportErrorUpdateView(UpdateView):
             messages.error(self.request, f'Erreur lors de la réimportation : {error}')
         return response
 
+@login_required
 def retry_import_error(request, pk):
     error = get_object_or_404(DecesImportError, pk=pk)
     success, error_message = error.retry_import()
