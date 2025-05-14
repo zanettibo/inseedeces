@@ -1,6 +1,7 @@
 from django.db import models
 from django.utils import timezone
 from django.core.exceptions import ValidationError
+from django.urls import reverse
 
 class Deces(models.Model):
     # Define composite primary key from these three fields
@@ -240,6 +241,11 @@ class ImportHistory(models.Model):
     def __str__(self):
         return f"{self.zip_filename} - {self.csv_filename} ({self.status}) - {self.started_at.strftime('%Y-%m-%d %H:%M')}"
 
+    @property
+    def pending_errors(self):
+        """Retourne le nombre d'erreurs non résolues pour cet import"""
+        return self.decesimporterror_set.filter(resolved=False).count()
+
     def update_status(self, status, error_message=None):
         self.status = status
         if error_message:
@@ -247,3 +253,86 @@ class ImportHistory(models.Model):
         if status in ['completed', 'failed']:
             self.completed_at = timezone.now()
         self.save()
+
+class DecesImportError(models.Model):
+    # Données brutes de la ligne en erreur
+    import_history = models.ForeignKey(ImportHistory, on_delete=models.CASCADE)
+    raw_data = models.JSONField(help_text='Données brutes de la ligne en erreur')
+    error_message = models.TextField(help_text='Message d\'erreur lors de l\'import')
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    resolved = models.BooleanField(default=False)
+    resolution_date = models.DateTimeField(null=True, blank=True)
+
+    # Champs modifiables pour correction
+    nom = models.CharField(max_length=100, null=True, blank=True)
+    prenoms = models.CharField(max_length=200, null=True, blank=True)
+    sexe = models.CharField(max_length=1, null=True, blank=True)
+    date_naissance = models.DateField(null=True, blank=True)
+    lieu_naissance = models.CharField(max_length=5, null=True, blank=True)
+    lieu_naissance_nom = models.CharField(max_length=200, null=True, blank=True)
+    date_deces = models.DateField(null=True, blank=True)
+    lieu_deces = models.CharField(max_length=5, null=True, blank=True)
+    acte_deces = models.CharField(max_length=10, null=True, blank=True)
+
+    class Meta:
+        verbose_name = 'Erreur d\'import'
+        verbose_name_plural = 'Erreurs d\'import'
+        ordering = ['-created_at']
+        indexes = [
+            models.Index(fields=['resolved']),
+            models.Index(fields=['import_history']),
+        ]
+
+    def __str__(self):
+        return f"Erreur d'import {self.id} - {self.error_message[:50]}"
+
+    def get_absolute_url(self):
+        return reverse('deces:import-error-detail', kwargs={'pk': self.pk})
+
+    def mark_as_resolved(self):
+        self.resolved = True
+        self.resolution_date = timezone.now()
+        self.save()
+
+    def retry_import(self):
+        """Tente de réimporter la ligne dans la table Deces avec les données corrigées"""
+        try:
+            # Préparer les données
+            data = {
+                'nom': self.nom,
+                'prenoms': self.prenoms,
+                'sexe': self.sexe,
+                'date_naissance': self.date_naissance,
+                'lieu_naissance': self.lieu_naissance,
+                'lieu_naissance_nom': self.lieu_naissance_nom,
+                'date_deces': self.date_deces,
+                'lieu_deces': self.lieu_deces,
+                'acte_deces': self.acte_deces
+            }
+            
+            # Chercher un doublon existant
+            existing = Deces.objects.filter(
+                date_deces=self.date_deces,
+                lieu_deces=self.lieu_deces,
+                acte_deces=self.acte_deces
+            ).first()
+            
+            if existing:
+                # Mettre à jour l'existant
+                for key, value in data.items():
+                    setattr(existing, key, value)
+                existing.full_clean()
+                existing.save()
+            else:
+                # Créer un nouveau
+                deces = Deces(**data)
+                deces.full_clean()
+                deces.save()
+            
+            self.mark_as_resolved()
+            return True, None
+        except ValidationError as e:
+            return False, str(e)
+        except Exception as e:
+            return False, f"Erreur inattendue: {str(e)}"

@@ -64,7 +64,7 @@
                         }
                     },
                     ajax: {
-                        url: '{% url "autocomplete_lieu" %}',
+                        url: '{% url "deces:autocomplete_lieu" %}',
                         dataType: 'json',
                         delay: 250,
                         data: function(params) {
@@ -225,7 +225,7 @@
                         
                         <div class="col-12">
                             <button type="submit" class="btn btn-primary">Rechercher</button>
-                            <a href="{% url 'search' %}" class="btn btn-outline-secondary">Réinitialiser</a>
+                            <a href="{% url 'deces:search' %}" class="btn btn-outline-secondary">Réinitialiser</a>
                         </div>
                     </div>
                 </form>

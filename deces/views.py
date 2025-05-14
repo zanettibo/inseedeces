@@ -2,8 +2,10 @@ import os
 import hashlib
 from django.db.models import Sum
 from django.http import JsonResponse
-from django.shortcuts import render
-from django.views.generic import ListView
+from django.shortcuts import render, redirect, get_object_or_404
+from django.urls import reverse
+from django.contrib import messages
+from django.views.generic import ListView, UpdateView, DetailView
 from django.http import JsonResponse
 from django.db.models import Q, Value, CharField, Case, When, OuterRef, Subquery
 from django.db.models.functions import Concat
@@ -11,7 +13,7 @@ from .models import Deces, Commune, Region, Departement, Pays
 from django.views.decorators.cache import cache_page
 from django.core.paginator import Paginator
 import requests
-from .models import Deces, ImportHistory
+from .models import Deces, ImportHistory, DecesImportError
 from django.views.decorators.http import require_http_methods
 from django.views.decorators.cache import cache_page
 from django.core.cache import cache
@@ -523,3 +525,70 @@ def search(request):
     response['Pragma'] = 'no-cache'
     response['Expires'] = '0'
     return response
+
+class ImportErrorListView(ListView):
+    model = DecesImportError
+    template_name = 'deces/import_error_list.html'
+    context_object_name = 'errors'
+    paginate_by = 50
+
+    def get_queryset(self):
+        queryset = super().get_queryset()
+        # Filtres
+        status = self.request.GET.get('status')
+        if status == 'resolved':
+            queryset = queryset.filter(resolved=True)
+        elif status == 'unresolved':
+            queryset = queryset.filter(resolved=False)
+
+        import_id = self.request.GET.get('import_id')
+        if import_id:
+            queryset = queryset.filter(import_history_id=import_id)
+
+        return queryset.select_related('import_history')
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['imports'] = ImportHistory.objects.all()
+        context['status'] = self.request.GET.get('status', '')
+        context['import_id'] = self.request.GET.get('import_id', '')
+        return context
+
+class ImportErrorDetailView(DetailView):
+    model = DecesImportError
+    template_name = 'deces/import_error_detail.html'
+    context_object_name = 'error'
+
+class ImportErrorUpdateView(UpdateView):
+    model = DecesImportError
+    template_name = 'deces/import_error_form.html'
+    fields = ['nom', 'prenoms', 'sexe', 'date_naissance', 'lieu_naissance',
+             'lieu_naissance_nom', 'date_deces', 'lieu_deces', 'acte_deces']
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['raw_data'] = self.object.raw_data
+        return context
+
+    def get_success_url(self):
+        return reverse('deces:import-error-detail', kwargs={'pk': self.object.pk})
+
+    def form_valid(self, form):
+        response = super().form_valid(form)
+        success, error = self.object.retry_import()
+        if success:
+            messages.success(self.request, 'Les données ont été corrigées et importées avec succès.')
+        else:
+            messages.error(self.request, f'Erreur lors de la réimportation : {error}')
+        return response
+
+def retry_import_error(request, pk):
+    error = get_object_or_404(DecesImportError, pk=pk)
+    success, error_message = error.retry_import()
+    
+    if success:
+        messages.success(request, 'Les données ont été réimportées avec succès.')
+    else:
+        messages.error(request, f'Erreur lors de la réimportation : {error_message}')
+    
+    return redirect('deces:import-error-detail', pk=pk)

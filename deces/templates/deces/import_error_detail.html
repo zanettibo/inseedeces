@@ -1,0 +1,112 @@
+{% extends "deces/base.html" %}
+
+{% block content %}
+<div class="container mt-4">
+    <h1>Détails de l'erreur d'import #{{ error.id }}</h1>
+
+    {% if messages %}
+    <div class="messages">
+        {% for message in messages %}
+        <div class="alert alert-{{ message.tags }}">
+            {{ message }}
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    <div class="row">
+        <div class="col-md-6">
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">Informations sur l'erreur</h5>
+                </div>
+                <div class="card-body">
+                    <dl class="row">
+                        <dt class="col-sm-4">Import</dt>
+                        <dd class="col-sm-8">{{ error.import_history.csv_filename }}</dd>
+
+                        <dt class="col-sm-4">Message d'erreur</dt>
+                        <dd class="col-sm-8">{{ error.error_message }}</dd>
+
+                        <dt class="col-sm-4">Date de création</dt>
+                        <dd class="col-sm-8">{{ error.created_at|date:"d/m/Y H:i" }}</dd>
+
+                        <dt class="col-sm-4">Statut</dt>
+                        <dd class="col-sm-8">
+                            {% if error.resolved %}
+                            <span class="badge bg-success">Résolu</span>
+                            {% if error.resolution_date %}
+                            <small class="text-muted">({{ error.resolution_date|date:"d/m/Y H:i" }})</small>
+                            {% endif %}
+                            {% else %}
+                            <span class="badge bg-warning">Non résolu</span>
+                            {% endif %}
+                        </dd>
+                    </dl>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-6">
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">Données brutes</h5>
+                </div>
+                <div class="card-body">
+                    <pre class="mb-0"><code>{{ error.raw_data|pprint }}</code></pre>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="card mb-4">
+        <div class="card-header">
+            <h5 class="card-title mb-0">Données actuelles</h5>
+        </div>
+        <div class="card-body">
+            <dl class="row">
+                <dt class="col-sm-3">Nom</dt>
+                <dd class="col-sm-9">{{ error.nom|default:"Non renseigné" }}</dd>
+
+                <dt class="col-sm-3">Prénoms</dt>
+                <dd class="col-sm-9">{{ error.prenoms|default:"Non renseigné" }}</dd>
+
+                <dt class="col-sm-3">Sexe</dt>
+                <dd class="col-sm-9">{{ error.sexe|default:"Non renseigné" }}</dd>
+
+                <dt class="col-sm-3">Date de naissance</dt>
+                <dd class="col-sm-9">{{ error.date_naissance|date:"d/m/Y"|default:"Non renseigné" }}</dd>
+
+                <dt class="col-sm-3">Lieu de naissance</dt>
+                <dd class="col-sm-9">{{ error.lieu_naissance|default:"Non renseigné" }}</dd>
+
+                <dt class="col-sm-3">Nom du lieu de naissance</dt>
+                <dd class="col-sm-9">{{ error.lieu_naissance_nom|default:"Non renseigné" }}</dd>
+
+                <dt class="col-sm-3">Date de décès</dt>
+                <dd class="col-sm-9">{{ error.date_deces|date:"d/m/Y"|default:"Non renseigné" }}</dd>
+
+                <dt class="col-sm-3">Lieu de décès</dt>
+                <dd class="col-sm-9">{{ error.lieu_deces|default:"Non renseigné" }}</dd>
+
+                <dt class="col-sm-3">Acte de décès</dt>
+                <dd class="col-sm-9">{{ error.acte_deces|default:"Non renseigné" }}</dd>
+            </dl>
+        </div>
+    </div>
+
+    <div class="mb-4">
+        {% if not error.resolved %}
+        <a href="{% url 'deces:import-error-update' error.pk %}" class="btn btn-primary">
+            Modifier les données
+        </a>
+        <a href="{% url 'deces:retry-import-error' error.pk %}" class="btn btn-success">
+            Réessayer l'import
+        </a>
+        {% endif %}
+        <a href="{% url 'deces:import-error-list' %}" class="btn btn-secondary">
+            Retour à la liste
+        </a>
+    </div>
+</div>
+{% endblock %}

@@ -32,8 +32,13 @@
         <div class="card">
             <div class="card-header d-flex justify-content-between align-items-center">
                 <h5 class="card-title mb-0">Historique des imports</h5>
-                <div class="text-muted" id="import-stats">
-                    <strong>Importé :</strong> {{ total_records_processed }} / {{ total_records }} enregistrements
+                <div class="d-flex align-items-center">
+                    <a href="{% url 'deces:import-error-list' %}" class="btn btn-outline-primary btn-sm me-3">
+                        Gérer les erreurs d'import
+                    </a>
+                    <div class="text-muted" id="import-stats">
+                        <strong>Importé :</strong> {{ total_records_processed }} / {{ total_records }} enregistrements
+                    </div>
                 </div>
             </div>
             <div class="card-body">
@@ -41,11 +46,12 @@
                     <table class="table table-hover">
                         <thead>
                             <tr>
-                                <th style="width: 30%">Fichier ZIP</th>
+                                <th style="width: 25%">Fichier ZIP</th>
                                 <th style="width: 20%">Fichier CSV</th>
                                 <th style="width: 10%">Statut</th>
                                 <th style="width: 20%">Progression</th>
-                                <th style="width: 20%">Total</th>
+                                <th style="width: 15%">Total</th>
+                                <th style="width: 10%">Erreurs</th>
                             </tr>
                         </thead>
                         <tbody id="imports-table-body">
@@ -73,10 +79,19 @@
                                     </div>
                                 </td>
                                 <td>{{ import.total_records }}</td>
+                                <td>
+                                    {% with pending_errors=import.pending_errors %}
+                                    <a href="{% url 'deces:import-error-list' %}?import_id={{ import.id }}&status=unresolved" class="text-decoration-none">
+                                        <span class="badge {% if pending_errors == 0 %}bg-success{% else %}bg-danger{% endif %}">
+                                            {{ pending_errors }}
+                                        </span>
+                                    </a>
+                                    {% endwith %}
+                                </td>
                             </tr>
                             {% if import.error_message %}
                             <tr class="table-danger">
-                                <td colspan="4">
+                                <td colspan="5">
                                     <small class="text-danger">{{ import.error_message }}</small>
                                 </td>
                             </tr>
@@ -170,7 +185,7 @@ function updateImportStatus(importId) {
 
 // Fonction pour mettre à jour les statistiques globales
 function updateImportStats() {
-    fetch('/import/stats/', {
+    fetch('{% url "deces:import_stats" %}', {
         headers: fetchHeaders
     })
         .then(response => response.json())

@@ -8,7 +8,7 @@ import zipfile
 import pandas as pd
 from datetime import datetime
 from celery import shared_task
-from deces.models import Deces, ImportHistory
+from deces.models import Deces, ImportHistory, DecesImportError
 import requests
 from celery.utils.log import get_task_logger
 
@@ -42,69 +42,89 @@ def parse_insee_date(date_str):
     except (ValueError, TypeError):
         return None
 
-def parse_row(row):
-    """Parse une ligne du CSV et retourne un dictionnaire de données valides ou (None, raison) si la ligne est invalide."""
+class ParseError(Exception):
+    """Exception levée lorsqu'une erreur survient lors du parsing d'une ligne."""
+    pass
+
+def parse_row(row, no_error=False):
+    """Parse une ligne du CSV et retourne un dictionnaire de données valides.
+    
+    Args:
+        row: La ligne de données à parser
+        no_error: Si True, ne lève pas d'exception et retourne les données partielles
+    
+    Returns:
+        Un dictionnaire contenant les données parsées
+    
+    Raises:
+        ParseError: Si la ligne est invalide et no_error est False
+    """
+    # Initialiser le dictionnaire de résultat
+    result = {
+        'nom': None,
+        'prenoms': None,
+        'sexe': None,
+        'date_naissance': None,
+        'lieu_naissance': None,
+        'lieu_naissance_nom': None,
+        'date_deces': None,
+        'lieu_deces': None,
+        'acte_deces': None
+    }
+    
+    # Traiter le champ nomprenom spécial (format: <NOM>*<PRENOM 1> [PRENOM 2] [PRENOM 3]/)        
+    nom_complet = row.get('nomprenom', '')
+    if not nom_complet or '*' not in nom_complet:
+        if not no_error:
+            raise ParseError(f'Format de nomprenom invalide (doit contenir *) : {nom_complet}')
+        return result
+    
+    # Nettoyer et séparer nom et prénoms
+    nom_complet = nom_complet.strip('"/')
     try:
+        nom, prenoms = nom_complet.split('*', 1)
+        result['nom'] = nom.strip() or None
+        result['prenoms'] = prenoms.strip() or None
+    except ValueError:
+        if not no_error:
+            raise ParseError(f'Format nomprenom invalide (pas de *) : {nom_complet}')
+        return result
+    
+    # Vérifier et nettoyer les champs obligatoires
+    sexe = row.get('sexe', '')
+    result['sexe'] = sexe if sexe in ['1', '2'] else None
 
-        # Traiter le champ nomprenom spécial (format: <NOM>*<PRENOM 1> [PRENOM 2] [PRENOM 3]/)        
-        nom_complet = row.get('nomprenom', '')
-        if not nom_complet or '*' not in nom_complet:
-            return None, f'Format de nomprenom invalide (doit contenir *) : {nom_complet}'
-        
-        # Nettoyer et séparer nom et prénoms
-        nom_complet = nom_complet.strip('"/')
-        try:
-            nom, prenoms = nom_complet.split('*', 1)
-        except ValueError:
-            return None, f'Format nomprenom invalide (pas de *) : {nom_complet}'
-            
-        # Nettoyer et autoriser les valeurs vides
-        nom = nom.strip() or None
-        prenoms = prenoms.strip() or None
-        
-        # Vérifier et nettoyer les champs obligatoires
-        sexe = row.get('sexe', '')
+    # Parser les dates
+    dn = row.get('datenaiss', '')
+    dd = row.get('datedeces', '')
 
-        dn = row.get('datenaiss', '')
-        dd = row.get('datedeces', '')
+    if dn == "00000000":
+        result['date_naissance'] = None
+    else:
+        date_naissance = parse_insee_date(dn)
+        result['date_naissance'] = date_naissance
+        if not date_naissance and not no_error:
+            raise ParseError(f'Date de naissance invalide : {dn}')
 
-        if dn == "00000000":
-            date_naissance = None
-        else:
-            date_naissance = parse_insee_date(dn)
-            if not date_naissance:
-                return None, f'Date de naissance invalide : {dn}'
-
+    if dd == "00000000":
+        result['date_deces'] = None
+    else:
         date_deces = parse_insee_date(dd)
-        if not date_deces:
-            return None, f'Date de décès invalide : {dd}'
-        
-        # Vérifier les champs obligatoires
-        if not sexe in ['1', '2']:
-            return None, f'Sexe invalide : {sexe} (doit être 1 ou 2)'
+        result['date_deces'] = date_deces
+        if not date_deces and not no_error:
+            raise ParseError(f'Date de décès invalide : {dd}')
 
-        # Nettoyer les autres champs
-        ln=str(row.get('lieunaiss', ''))
-        lieu_naissance = ln if len(ln) == 5 else '0' + ln
-        lieu_naissance_nom = row.get('commnaiss', '')
-        ld=str(row.get('lieudeces', ''))
-        lieu_deces = ld if len(ld) == 5 else '0' + ld
-        acte_deces = row.get('actedeces', '')
+    # Vérifier les valeurs obligatoires
+    if not all([result['sexe'], result['date_deces']]) and not no_error:
+        raise ParseError(f'Champs obligatoires manquants : sexe={result["sexe"]}, date_deces={result["date_deces"]}')
 
-        # Retourner le dictionnaire avec les données validées
-        return {
-            'nom': nom,
-            'prenoms': prenoms,
-            'sexe': sexe,
-            'date_naissance': date_naissance,
-            'lieu_naissance': lieu_naissance,
-            'lieu_naissance_nom': lieu_naissance_nom,
-            'date_deces': date_deces,
-            'lieu_deces': lieu_deces,
-            'acte_deces': acte_deces
-        }, None
-    except Exception as e:
-        return None, f'Erreur inattendue : {str(e)}'
+    # Nettoyer les autres champs
+    result['lieu_naissance'] = str(row.get('lieunaiss', '')).strip() or None
+    result['lieu_naissance_nom'] = str(row.get('commnaiss', '')).strip() or None
+    result['lieu_deces'] = str(row.get('lieudeces', '')).strip() or None
+    result['acte_deces'] = str(row.get('actedeces', '')).strip() or None
+
+    return result
 
 def clean_previous_import(csv_filename, md5_hash):
     """Nettoie les données d'un import précédent."""
@@ -196,13 +216,9 @@ def process_insee_file(self, zip_url, zip_filename):
                         for index, row in chunk.iterrows():
                             try:
                                 # Parser la ligne
-                                parsed_data, error = parse_row(row)
-                                if error:
-                                    error_count += 1
-                                    logger.warning(f'Ligne {index+1} ignorée : {error}\nDonnées : {row}')
-                                    continue
-
-                                # Créer l'objet Deces sans le sauvegarder
+                                parsed_data = parse_row(row)
+                                
+                                # Créer l'objet Deces
                                 deces = Deces(
                                     nom=parsed_data['nom'],
                                     prenoms=parsed_data['prenoms'],
@@ -223,9 +239,33 @@ def process_insee_file(self, zip_url, zip_filename):
                                         'lieu_naissance', 'lieu_naissance_nom'
                                     ])
                                     deces_batch = []
-                            except Exception as row_error:
+                            except (ParseError, Exception) as e:
                                 error_count += 1
-                                logger.error(f'Erreur ligne {index+1}: {str(row_error)}\nDonnées: {row}')
+                                error_type = 'parsing' if isinstance(e, ParseError) else 'inattendue'
+                                logger.error(f'Erreur de {error_type} ligne {index+1}: {str(e)}\nDonnées: {row}')
+                                
+                                # Essayer de récupérer les données partielles
+                                try:
+                                    parsed_data = parse_row(row, no_error=True)
+                                except Exception:
+                                    parsed_data = {}
+                                
+                                # Convertir les données en format JSON-compatible
+                                raw_data = {}
+                                for k, v in row.to_dict().items():
+                                    if pd.isna(v):
+                                        raw_data[k] = None
+                                    else:
+                                        raw_data[k] = str(v)
+                                
+                                # Sauvegarder l'erreur dans DecesImportError
+                                DecesImportError.objects.create(
+                                    raw_data=raw_data,
+                                    error_message=str(e),
+                                    import_history=import_history,
+                                    **parsed_data
+                                )
+                                
                                 if error_count > 100:
                                     raise Exception(f'Trop d\'erreurs ({error_count}), import arrêté')
                             
