@@ -33,9 +33,11 @@
             <div class="card-header d-flex justify-content-between align-items-center">
                 <h5 class="card-title mb-0">Historique des imports</h5>
                 <div class="d-flex align-items-center">
+                    {% if user.is_superuser %}
                     <a href="{% url 'deces:import-error-list' %}" class="btn btn-outline-primary btn-sm me-3">
                         Gérer les erreurs d'import
                     </a>
+                    {% endif %}
                     <div class="text-muted" id="import-stats">
                         <strong>Importé :</strong> {{ total_records_processed }} / {{ total_records }} enregistrements
                     </div>
@@ -82,11 +84,15 @@
                                 <td>
                                     {% if import.status == 'completed' %}
                                         {% with pending_errors=import.pending_errors %}
+                                        {% if user.is_superuser %}
                                         <a href="{% url 'deces:import-error-list' %}?import_id={{ import.id }}&status=unresolved" class="text-decoration-none">
+                                        {% endif %}
                                             <span class="badge {% if pending_errors == 0 %}bg-success{% else %}bg-danger{% endif %}">
                                                 {{ pending_errors }}
                                             </span>
+                                        {% if user.is_superuser %}
                                         </a>
+                                        {% endif %}
                                         {% endwith %}
                                     {% else %}
                                         <span class="badge bg-secondary">-</span>

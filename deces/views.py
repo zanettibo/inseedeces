@@ -60,6 +60,9 @@ def index(request):
 
 @login_required
 def import_data(request):
+    if not request.user.is_staff:
+        messages.error(request, 'Vous devez être membre du staff pour importer des données.')
+        return redirect('deces:index')
     if request.method == 'POST':
         url = request.POST.get('url')
         if not url or not url.endswith('.zip'):
@@ -549,6 +552,11 @@ def search(request):
     return response
 
 class ImportErrorListView(LoginRequiredMixin, ListView):
+    def dispatch(self, request, *args, **kwargs):
+        if not request.user.is_superuser:
+            messages.error(request, 'Vous devez être super-utilisateur pour gérer les erreurs d\'import.')
+            return redirect('deces:index')
+        return super().dispatch(request, *args, **kwargs)
     model = DecesImportError
     template_name = 'deces/import_error_list.html'
     context_object_name = 'errors'
@@ -577,11 +585,21 @@ class ImportErrorListView(LoginRequiredMixin, ListView):
         return context
 
 class ImportErrorDetailView(LoginRequiredMixin, DetailView):
+    def dispatch(self, request, *args, **kwargs):
+        if not request.user.is_superuser:
+            messages.error(request, 'Vous devez être super-utilisateur pour voir les détails des erreurs d\'import.')
+            return redirect('deces:index')
+        return super().dispatch(request, *args, **kwargs)
     model = DecesImportError
     template_name = 'deces/import_error_detail.html'
     context_object_name = 'error'
 
 class ImportErrorUpdateView(LoginRequiredMixin, UpdateView):
+    def dispatch(self, request, *args, **kwargs):
+        if not request.user.is_superuser:
+            messages.error(request, 'Vous devez être super-utilisateur pour corriger les erreurs d\'import.')
+            return redirect('deces:index')
+        return super().dispatch(request, *args, **kwargs)
     model = DecesImportError
     template_name = 'deces/import_error_form.html'
     form_class = ImportErrorForm
@@ -605,6 +623,9 @@ class ImportErrorUpdateView(LoginRequiredMixin, UpdateView):
 
 @login_required
 def retry_import_error(request, pk):
+    if not request.user.is_superuser:
+        messages.error(request, 'Vous devez être super-utilisateur pour réessayer une erreur d\'import.')
+        return redirect('deces:index')
     error = get_object_or_404(DecesImportError, pk=pk)
     success, error_message = error.retry_import()
     
