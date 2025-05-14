@@ -532,7 +532,11 @@ def search(request):
         'nom_flexible': nom_flexible,
         'prenoms_flexible': prenoms_flexible,
         'selected_lieu_naissance_text': selected_lieu_naissance_text,
-        'selected_lieu_deces_text': selected_lieu_deces_text
+        'selected_lieu_deces_text': selected_lieu_deces_text,
+        'lieu_naissance': lieu_naissance_id,
+        'lieu_naissance_type': lieu_naissance_type,
+        'lieu_deces': lieu_deces_id,
+        'lieu_deces_type': lieu_deces_type,
     }
     response = render(request, 'deces/search.html', context)
     # Désactiver le cache pour cette vue
