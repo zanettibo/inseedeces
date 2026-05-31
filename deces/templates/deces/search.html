@@ -292,32 +292,14 @@
                                     <td>{{ deces.prenoms }}</td>
                                     <td>{{ deces.date_naissance|date:"d/m/Y"|default:"INCONNUE" }}</td>
                                     <td>
-                                        {% with lieu=deces.lieu_naissance_detail %}
-                                            {% if lieu %}
-                                                {% if deces.lieu_naissance|slice:":2" == "99" %}
-                                                    {{ deces.lieu_naissance_nom }}, {{ lieu.libcog }}
-                                                {% else %}
-                                                    {{ lieu.libelle }}, {{ lieu.dep.libelle }}
-                                                {% endif %}
-                                            {% else %}
-                                                {{ deces.lieu_naissance }}
-                                            {% endif %}
-                                        {% endwith %}
+                                        {% if deces.lieu_naissance|slice:":2" == "99" %}
+                                            {{ deces.lieu_naissance_nom }}{% if deces.lieu_naissance_libelle %}, {{ deces.lieu_naissance_libelle }}{% endif %}
+                                        {% else %}
+                                            {{ deces.lieu_naissance_libelle|default:deces.lieu_naissance }}
+                                        {% endif %}
                                     </td>
                                     <td>{{ deces.date_deces|date:"d/m/Y" }}</td>
-                                    <td>
-                                        {% with lieu=deces.lieu_deces_detail %}
-                                            {% if lieu %}
-                                                {% if deces.lieu_deces|slice:":2" == "99" %}
-                                                    {{ lieu.libcog }}
-                                                {% else %}
-                                                    {{ lieu.libelle }}, {{ lieu.dep.libelle }}
-                                                {% endif %}
-                                            {% else %}
-                                                {{ deces.lieu_deces }}
-                                            {% endif %}
-                                        {% endwith %}
-                                    </td>
+                                    <td>{{ deces.lieu_deces_libelle|default:deces.lieu_deces }}</td>
                                 </tr>
                                 {% endfor %}
                             </tbody>

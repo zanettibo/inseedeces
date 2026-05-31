@@ -1,4 +1,8 @@
-from django.db.models import Sum
+import math
+from functools import reduce
+from datetime import date as date_type
+
+from django.db.models import Sum, Q
 from django.http import JsonResponse
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
@@ -6,18 +10,44 @@ from django.contrib.auth.mixins import LoginRequiredMixin
 from django.urls import reverse
 from django.contrib import messages
 from django.views.generic import ListView, UpdateView, DetailView
-from django.http import JsonResponse
-from django.db.models import Q, Value, CharField, Case, When, OuterRef, Subquery, F
-from django.db.models.functions import Concat
-from .models import Deces, Commune, Region, Departement, Pays
-from django.views.decorators.cache import cache_page
 from django.core.paginator import Paginator
-from .models import Deces, ImportHistory, DecesImportError
 from django.views.decorators.http import require_http_methods
 from django.views.decorators.cache import cache_page
 from django.core.cache import cache
+
+from .models import Deces, Commune, Region, Departement, Pays, ImportHistory, DecesImportError
 from .tasks import process_insee_file
 from .forms import ImportErrorForm
+
+
+class MeiliPaginator:
+    def __init__(self, total, page_size):
+        self.count = total
+        self.per_page = page_size
+        self.num_pages = max(1, math.ceil(total / page_size))
+        self.page_range = range(1, self.num_pages + 1)
+
+
+class MeiliPage:
+    def __init__(self, object_list, number, paginator):
+        self.object_list = object_list
+        self.number = number
+        self.paginator = paginator
+
+    def has_previous(self):
+        return self.number > 1
+
+    def has_next(self):
+        return self.number < self.paginator.num_pages
+
+    def previous_page_number(self):
+        return self.number - 1
+
+    def next_page_number(self):
+        return self.number + 1
+
+    def __iter__(self):
+        return iter(self.object_list)
 
 def rate_limit(key_prefix, limit=60):
     def decorator(view_func):
@@ -425,62 +455,14 @@ def search(request):
             elif lieu_deces_type == 'pays':
                 results = results.filter(lieu_deces=lieu_deces_id)
 
-        # Tri des résultats
         valid_fields = {
             'nom': 'nom',
             'prenoms': 'prenoms',
             'date_naissance': 'date_naissance',
             'date_deces': 'date_deces',
-            'lieu_deces': 'lieu_deces_nom_resolue',
-            'lieu_naissance': 'lieu_naissance_nom_resolue'
+            'lieu_deces': 'lieu_deces_libelle',
+            'lieu_naissance': 'lieu_naissance_libelle',
         }
-
-        # Ajouter les annotations pour le tri sur les noms de lieux
-        results = results.annotate(
-            lieu_naissance_nom_resolue=Case(
-                When(lieu_naissance__startswith='99',
-                     then=Concat(
-                         F('lieu_naissance_nom'),
-                         Value(', '),
-                         Subquery(
-                             Pays.objects.filter(cog=OuterRef('lieu_naissance'))
-                             .values('libcog')[:1]
-                         ),
-                         output_field=CharField()
-                     )),
-                default=Concat(
-                    Subquery(
-                        Commune.objects.filter(com=OuterRef('lieu_naissance'))
-                        .values('libelle')[:1]
-                    ),
-                    Value(', '),
-                    Subquery(
-                        Commune.objects.filter(com=OuterRef('lieu_naissance'))
-                        .values('dep__libelle')[:1]
-                    ),
-                    output_field=CharField()
-                )
-            ),
-            lieu_deces_nom_resolue=Case(
-                When(lieu_deces__startswith='99',
-                     then=Subquery(
-                         Pays.objects.filter(cog=OuterRef('lieu_deces'))
-                         .values('libcog')[:1]
-                     )),
-                default=Concat(
-                    Subquery(
-                        Commune.objects.filter(com=OuterRef('lieu_deces'))
-                        .values('libelle')[:1]
-                    ),
-                    Value(', '),
-                    Subquery(
-                        Commune.objects.filter(com=OuterRef('lieu_deces'))
-                        .values('dep__libelle')[:1]
-                    ),
-                    output_field=CharField()
-                )
-            )
-        )
 
         if order_by in valid_fields:
             order_field = valid_fields[order_by]
@@ -488,8 +470,54 @@ def search(request):
                 order_field = f'-{order_field}'
             results = results.order_by(order_field)
 
-        paginator = Paginator(results, 20)
-        page_obj = paginator.get_page(page)
+        # Use Meilisearch for flexible (full-text) name search
+        use_meilisearch = (nom_flexible == 'on' or prenoms_flexible == 'on') and (nom or prenoms)
+        if use_meilisearch:
+            try:
+                from .search_index import search as meili_search
+                total, pks = meili_search(
+                    nom=nom.upper() if nom else None,
+                    prenoms=prenoms.upper() if prenoms else None,
+                    nom_flexible=(nom_flexible == 'on'),
+                    prenoms_flexible=(prenoms_flexible == 'on'),
+                    sexe=sexe or None,
+                    date_naissance_debut=date_naissance_debut or None,
+                    date_naissance_fin=date_naissance_fin or None,
+                    date_deces_debut=date_deces_debut or None,
+                    date_deces_fin=date_deces_fin or None,
+                    lieu_naissance_id=lieu_naissance_id or None,
+                    lieu_naissance_type=lieu_naissance_type or None,
+                    lieu_deces_id=lieu_deces_id or None,
+                    lieu_deces_type=lieu_deces_type or None,
+                    order_by=order_by,
+                    order_dir=order_dir,
+                    page=int(page),
+                    page_size=20,
+                )
+                if pks:
+                    conditions = [
+                        Q(date_deces=date_type.fromisoformat(pd), lieu_deces=pl, acte_deces=pa)
+                        for pd, pl, pa in pks
+                    ]
+                    combined_q = reduce(lambda a, b: a | b, conditions)
+                    records_map = {
+                        (str(d.date_deces), d.lieu_deces, d.acte_deces): d
+                        for d in Deces.objects.filter(combined_q)
+                    }
+                    object_list = [records_map.get(pk) for pk in pks]
+                    object_list = [r for r in object_list if r is not None]
+                else:
+                    object_list = []
+                paginator = MeiliPaginator(total, 20)
+                page_obj = MeiliPage(object_list, int(page), paginator)
+            except Exception as e:
+                import logging
+                logging.getLogger(__name__).warning(f"Meilisearch unavailable, falling back to DB: {e}")
+                use_meilisearch = False
+
+        if not use_meilisearch:
+            paginator = Paginator(results, 20)
+            page_obj = paginator.get_page(page)
 
     def get_lieu_text(lieu_id, lieu_type):
         if not lieu_id or not lieu_type:

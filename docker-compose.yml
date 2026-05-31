@@ -12,6 +12,15 @@ services:
   redis:
     image: redis:7-alpine
 
+  meilisearch:
+    image: getmeili/meilisearch:v1.6
+    ports:
+      - "7700:7700"
+    volumes:
+      - meili_data:/meili_data
+    environment:
+      MEILI_MASTER_KEY: "masterKey_inseedeces_secret"
+
   migrate:
     build: .
     entrypoint: /usr/local/bin/docker-entrypoint-migrate.sh
@@ -29,12 +38,15 @@ services:
     environment:
       - DATABASE_URL=mysql://insee:insee_password@db:3306/insee_deces
       - CELERY_BROKER_URL=redis://redis:6379/0
+      - MEILISEARCH_URL=http://meilisearch:7700
+      - MEILISEARCH_API_KEY=masterKey_inseedeces_secret
       - DEBUG=True
       - ALLOWED_HOSTS=localhost,127.0.0.1,0.0.0.0
     depends_on:
       - db
       - redis
       - migrate
+      - meilisearch
 
   celery:
     build: .
@@ -42,6 +54,8 @@ services:
     environment:
       - DATABASE_URL=mysql://insee:insee_password@db:3306/insee_deces
       - CELERY_BROKER_URL=redis://redis:6379/0
+      - MEILISEARCH_URL=http://meilisearch:7700
+      - MEILISEARCH_API_KEY=masterKey_inseedeces_secret
       - DEBUG=True
       - ALLOWED_HOSTS=localhost,127.0.0.1,0.0.0.0
     depends_on:
@@ -49,6 +63,8 @@ services:
       - redis
       - db
       - migrate
+      - meilisearch
 
 volumes:
   db_data:
+  meili_data:

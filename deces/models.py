@@ -17,11 +17,13 @@ class Deces(models.Model):
     date_naissance = models.DateField(null=True)
     lieu_naissance = models.CharField(max_length=5)
     lieu_naissance_nom = models.CharField(max_length=200, null=True, blank=True, default=None)
-    
+    lieu_naissance_libelle = models.CharField(max_length=300, null=True, blank=True, default=None)
+
     # Death information - these fields are part of the primary key
     date_deces = models.DateField()
     lieu_deces = models.CharField(max_length=5)
     acte_deces = models.CharField(max_length=10)
+    lieu_deces_libelle = models.CharField(max_length=300, null=True, blank=True, default=None)
     
     @property
     def lieu_naissance_detail(self):
@@ -70,8 +72,10 @@ class Deces(models.Model):
             models.Index(fields=['date_naissance']),
             models.Index(fields=['lieu_naissance']),
             models.Index(fields=['lieu_naissance_nom']),
+            models.Index(fields=['lieu_naissance_libelle']),
             models.Index(fields=['date_deces']),
-            models.Index(fields=['lieu_deces'])
+            models.Index(fields=['lieu_deces']),
+            models.Index(fields=['lieu_deces_libelle'])
         ]
 
     def __str__(self):

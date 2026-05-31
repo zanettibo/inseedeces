@@ -200,6 +200,9 @@ LANGUAGE_CODE = 'en-us'
 TIME_ZONE = 'Europe/Paris'
 
 # Celery Configuration
+MEILISEARCH_URL = os.getenv('MEILISEARCH_URL', 'http://meilisearch:7700')
+MEILISEARCH_API_KEY = os.getenv('MEILISEARCH_API_KEY', 'masterKey_inseedeces_secret')
+
 CELERY_BROKER_URL = os.getenv('CELERY_BROKER_URL', 'redis://localhost:6379/0')
 CELERY_RESULT_BACKEND = 'django-db'
 CELERY_ACCEPT_CONTENT = ['json']
