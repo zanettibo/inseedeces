@@ -1,31 +1,67 @@
 {% extends 'deces/base.html' %}
 
+{% block title %}Accueil — INSEE Décès{% endblock %}
+
 {% block content %}
-<div class="row justify-content-center">
-    <div class="col-md-8 text-center">
-        <h1 class="mb-4">Bienvenue sur INSEE Décès</h1>
-        <p class="lead mb-4">Cette application vous permet d'importer et de rechercher dans les données de décès de l'INSEE.</p>
-        
-        <div class="row">
-            <div class="col-md-6">
-                <div class="card mb-4">
-                    <div class="card-body">
-                        <h5 class="card-title">Importer des données</h5>
-                        <p class="card-text">Importez des fichiers ZIP de l'INSEE contenant des données de décès.</p>
-                        <a href="{% url 'deces:import_data' %}" class="btn btn-primary">Importer</a>
-                    </div>
-                </div>
-            </div>
-            <div class="col-md-6">
-                <div class="card mb-4">
-                    <div class="card-body">
-                        <h5 class="card-title">Rechercher</h5>
-                        <p class="card-text">Recherchez dans la base de données des décès.</p>
-                        <a href="{% url 'deces:search' %}?prenoms_flexible=on" class="btn btn-primary">Rechercher</a>
-                    </div>
-                </div>
-            </div>
+<div class="page-hd">
+  <div class="page-title">Bienvenue</div>
+  <div class="page-sub">Base nationale des décès — données INSEE</div>
+</div>
+
+<div class="page-body">
+  <div class="row g-3 mb-4">
+    <div class="col-md-6">
+      <div class="card h-100">
+        <div class="card-body d-flex flex-column" style="gap:12px;">
+          <div style="width:40px;height:40px;background:var(--accent-dim);border-radius:var(--r);display:flex;align-items:center;justify-content:center;font-size:20px;color:#a5b4fc;">
+            <i class="bi bi-search"></i>
+          </div>
+          <div>
+            <div style="font-size:15px;font-weight:700;color:var(--t1);margin-bottom:4px;">Recherche</div>
+            <div style="font-size:13px;color:var(--t4);">Consultez les décès par nom, prénom, lieu, ou plage de dates. Recherche exacte ou flexible avec tolérance aux fautes.</div>
+          </div>
+          <a href="{% url 'deces:search' %}?prenoms_flexible=on" class="btn btn-primary mt-auto" style="width:fit-content;">
+            <i class="bi bi-search me-1"></i> Rechercher
+          </a>
         </div>
+      </div>
     </div>
+
+    {% if user.is_staff %}
+    <div class="col-md-6">
+      <div class="card h-100">
+        <div class="card-body d-flex flex-column" style="gap:12px;">
+          <div style="width:40px;height:40px;background:var(--ok-dim);border-radius:var(--r);display:flex;align-items:center;justify-content:center;font-size:20px;color:var(--ok);">
+            <i class="bi bi-cloud-upload"></i>
+          </div>
+          <div>
+            <div style="font-size:15px;font-weight:700;color:var(--t1);margin-bottom:4px;">Import</div>
+            <div style="font-size:13px;color:var(--t4);">Importez des fichiers ZIP de décès depuis les statistiques INSEE. Traitement asynchrone avec suivi en temps réel.</div>
+          </div>
+          <a href="{% url 'deces:import_data' %}" class="btn btn-outline-secondary mt-auto" style="width:fit-content;">
+            <i class="bi bi-cloud-upload me-1"></i> Importer
+          </a>
+        </div>
+      </div>
+    </div>
+    {% endif %}
+  </div>
+
+  {% if user.is_staff %}
+  <div class="row g-3">
+    <div class="col-md-4">
+      <div class="card">
+        <div class="card-body d-flex flex-column" style="gap:10px;">
+          <div style="width:36px;height:36px;background:var(--warn-dim);border-radius:var(--r);display:flex;align-items:center;justify-content:center;font-size:18px;color:var(--warn);">
+            <i class="bi bi-grid-1x2"></i>
+          </div>
+          <div style="font-size:14px;font-weight:600;color:var(--t1);">Tableau de bord</div>
+          <div style="font-size:12.5px;color:var(--t4);">Statistiques, graphiques et historique des imports.</div>
+          <a href="{% url 'deces:dashboard' %}" class="btn btn-outline-secondary btn-sm" style="width:fit-content;">Voir les stats</a>
+        </div>
+      </div>
+    </div>
+  </div>
+  {% endif %}
 </div>
 {% endblock %}

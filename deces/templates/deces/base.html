@@ -1,55 +1,287 @@
 <!DOCTYPE html>
 <html lang="fr">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{% block title %}INSEE Décès{% endblock %}</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.2/font/bootstrap-icons.css">
-    {% block extra_css %}{% endblock %}
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{% block title %}INSEE Décès{% endblock %}</title>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.2/font/bootstrap-icons.css">
+  <style>
+    :root {
+      --bg0: #09090b; --bg1: #18181b; --bg2: #27272a; --bg3: #3f3f46;
+      --t1: #fafafa; --t2: #d4d4d8; --t3: #a1a1aa; --t4: #71717a;
+      --accent: #6366f1; --accent-h: #4f46e5; --accent-dim: rgba(99,102,241,.14);
+      --ok: #22c55e; --ok-dim: rgba(34,197,94,.14);
+      --err: #ef4444; --err-dim: rgba(239,68,68,.14);
+      --warn: #f59e0b; --warn-dim: rgba(245,158,11,.14);
+      --sw: 228px; --r: 6px; --r2: 10px;
+      --ff: 'Plus Jakarta Sans', sans-serif;
+      --fm: 'JetBrains Mono', monospace;
+    }
+    *, *::before, *::after { box-sizing: border-box; }
+    html, body { height: 100%; }
+    body { background: var(--bg0); color: var(--t1); font-family: var(--ff); font-size: 14px; line-height: 1.55; margin: 0; display: flex; }
+
+    /* ── SIDEBAR ── */
+    .sidebar { width: var(--sw); min-height: 100vh; background: var(--bg1); border-right: 1px solid var(--bg2); display: flex; flex-direction: column; position: fixed; top: 0; left: 0; z-index: 100; }
+    .sb-logo { padding: 18px 16px 14px; border-bottom: 1px solid var(--bg2); }
+    .sb-logo .brand { font-size: 14px; font-weight: 700; color: var(--t1); letter-spacing: -.02em; display: flex; align-items: center; gap: 8px; }
+    .sb-logo .brand i { font-size: 18px; color: var(--accent); }
+    .sb-logo .ver { font-size: 10px; color: var(--t4); font-family: var(--fm); margin-top: 2px; }
+    .sb-nav { flex: 1; padding: 10px 8px; overflow-y: auto; }
+    .sb-section { font-size: 10px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: var(--t4); padding: 10px 10px 4px; }
+    .nav-item { display: flex; align-items: center; gap: 9px; padding: 8px 10px; border-radius: var(--r); color: var(--t3); text-decoration: none; font-size: 13.5px; font-weight: 500; transition: background .12s, color .12s; margin-bottom: 1px; }
+    .nav-item:hover { background: var(--bg2); color: var(--t1); }
+    .nav-item.active { background: var(--accent-dim); color: #a5b4fc; }
+    .nav-item i { font-size: 16px; flex-shrink: 0; }
+    .sb-footer { padding: 10px 8px; border-top: 1px solid var(--bg2); }
+    .user-row { display: flex; align-items: center; gap: 9px; padding: 8px 10px; margin-bottom: 4px; }
+    .user-av { width: 30px; height: 30px; background: var(--accent-dim); border-radius: 50%; display: flex; align-items: center; justify-content: center; color: #a5b4fc; font-size: 12px; font-weight: 700; flex-shrink: 0; }
+    .user-name { font-size: 12.5px; font-weight: 600; color: var(--t2); }
+    .user-role { font-size: 10.5px; color: var(--t4); }
+    .btn-logout { display: flex; align-items: center; justify-content: center; gap: 6px; width: 100%; padding: 6px 12px; border-radius: var(--r); background: transparent; border: 1px solid var(--bg3); color: var(--t3); font-size: 12px; font-family: var(--ff); cursor: pointer; text-decoration: none; transition: all .15s; }
+    .btn-logout:hover { background: var(--err-dim); border-color: var(--err); color: var(--err); }
+
+    /* ── MAIN ── */
+    .main { margin-left: var(--sw); flex: 1; display: flex; flex-direction: column; min-height: 100vh; }
+    .page-hd { padding: 28px 32px 0; }
+    .page-title { font-size: 20px; font-weight: 700; letter-spacing: -.03em; color: var(--t1); margin: 0; }
+    .page-sub { font-size: 12.5px; color: var(--t4); margin-top: 3px; }
+    .page-body { padding: 20px 32px 32px; flex: 1; }
+
+    /* ── CARD ── */
+    .card { background: var(--bg1); border: 1px solid var(--bg2); border-radius: var(--r2); }
+    .card-header { background: transparent; border-bottom: 1px solid var(--bg2); padding: 13px 18px; font-size: 13px; font-weight: 600; color: var(--t2); }
+    .card-body { padding: 18px; }
+
+    /* ── STAT CARD ── */
+    .stat-card { background: var(--bg1); border: 1px solid var(--bg2); border-radius: var(--r2); padding: 18px; }
+    .stat-ic { width: 36px; height: 36px; border-radius: var(--r); display: flex; align-items: center; justify-content: center; font-size: 17px; margin-bottom: 14px; }
+    .stat-ic.indigo { background: var(--accent-dim); color: #a5b4fc; }
+    .stat-ic.green  { background: var(--ok-dim);     color: var(--ok); }
+    .stat-ic.amber  { background: var(--warn-dim);   color: var(--warn); }
+    .stat-val { font-size: 26px; font-weight: 700; letter-spacing: -.04em; color: var(--t1); line-height: 1.1; font-variant-numeric: tabular-nums; }
+    .stat-lbl { font-size: 12px; color: var(--t4); margin-top: 5px; }
+
+    /* ── FORMS ── */
+    .form-control, .form-select { background: var(--bg0); border: 1px solid var(--bg3); color: var(--t1); border-radius: var(--r); font-size: 13.5px; font-family: var(--ff); padding: 7px 11px; transition: border-color .15s, box-shadow .15s; }
+    .form-control:focus, .form-select:focus { background: var(--bg0); border-color: var(--accent); color: var(--t1); box-shadow: 0 0 0 3px var(--accent-dim); outline: none; }
+    .form-control::placeholder { color: var(--t4); }
+    .form-select option { background: var(--bg1); color: var(--t1); }
+    .form-label { font-size: 11.5px; font-weight: 600; color: var(--t3); letter-spacing: .03em; text-transform: uppercase; margin-bottom: 5px; display: block; }
+    .form-text { font-size: 11.5px; color: var(--t4); }
+    .form-check-input { background-color: var(--bg2); border-color: var(--bg3); }
+    .form-check-input:checked { background-color: var(--accent); border-color: var(--accent); }
+    .form-check-label { font-size: 13px; color: var(--t3); }
+    .input-group-text { background: var(--bg1); border-color: var(--bg3); color: var(--t3); font-size: 13px; }
+
+    /* ── BUTTONS ── */
+    .btn { font-family: var(--ff); font-weight: 600; font-size: 13px; border-radius: var(--r); padding: 7px 16px; letter-spacing: -.01em; transition: all .15s; }
+    .btn-primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+    .btn-primary:hover { background: var(--accent-h); border-color: var(--accent-h); color: #fff; }
+    .btn-outline-secondary { background: transparent; border-color: var(--bg3); color: var(--t3); }
+    .btn-outline-secondary:hover { background: var(--bg2); border-color: var(--bg3); color: var(--t1); }
+    .btn-outline-success { background: transparent; border-color: rgba(34,197,94,.3); color: var(--ok); }
+    .btn-outline-success:hover { background: var(--ok-dim); border-color: var(--ok); color: var(--ok); }
+    .btn-outline-info { background: transparent; border-color: rgba(99,102,241,.3); color: #a5b4fc; }
+    .btn-outline-info:hover { background: var(--accent-dim); color: #a5b4fc; }
+    .btn-outline-primary { background: transparent; border-color: var(--accent); color: #a5b4fc; }
+    .btn-outline-primary:hover { background: var(--accent-dim); color: #a5b4fc; }
+    .btn-success { background: var(--ok); border-color: var(--ok); color: #000; }
+    .btn-success:hover { background: #16a34a; border-color: #16a34a; color: #000; }
+    .btn-warning { background: var(--warn); border-color: var(--warn); color: #000; }
+    .btn-danger  { background: var(--err);  border-color: var(--err);  color: #fff; }
+    .btn-sm { font-size: 12px; padding: 4px 10px; }
+    .btn:disabled { opacity: .4; cursor: not-allowed; }
+
+    /* ── TABLES — override Bootstrap 5 CSS vars ── */
+    .table {
+      --bs-table-color: var(--t2);
+      --bs-table-bg: transparent;
+      --bs-table-border-color: var(--bg2);
+      --bs-table-striped-color: var(--t2);
+      --bs-table-striped-bg: transparent;
+      --bs-table-hover-color: var(--t1);
+      --bs-table-hover-bg: rgba(255,255,255,.04);
+      --bs-table-active-color: var(--t1);
+      --bs-table-active-bg: rgba(255,255,255,.04);
+      color: var(--t2); font-size: 13px; border-color: var(--bg2); margin-bottom: 0;
+    }
+    .table > :not(caption) > * > * { background-color: var(--bs-table-bg); color: var(--bs-table-color); }
+    .table thead th { background: var(--bg1) !important; color: var(--t4); font-size: 10.5px; font-weight: 600; letter-spacing: .07em; text-transform: uppercase; border-bottom: 1px solid var(--bg2); border-top: none; padding: 10px 14px; white-space: nowrap; }
+    .table tbody tr { border-bottom: 1px solid var(--bg2); transition: background .1s; }
+    .table tbody tr:hover > * { background-color: rgba(255,255,255,.04) !important; color: var(--t1) !important; }
+    .table tbody tr:last-child { border-bottom: none; }
+    .table tbody td { padding: 10px 14px; vertical-align: middle; border: none; }
+    .table-striped > tbody > tr:nth-of-type(odd) > * { background-color: transparent !important; color: var(--t2) !important; }
+    .table-responsive { border-radius: var(--r2); overflow: hidden; }
+    /* pre/code dark */
+    pre, code { background: var(--bg0); color: #86efac; border: 1px solid var(--bg2); border-radius: var(--r); padding: 12px 16px; font-family: var(--fm); font-size: 12px; }
+    pre code { background: transparent; border: none; padding: 0; }
+    /* definition lists */
+    dt { color: var(--t4); font-size: 12px; font-weight: 500; }
+    dd { color: var(--t1); font-size: 13px; font-family: var(--fm); }
+    .mono { font-family: var(--fm); font-size: 12.5px; }
+    .sort-link { color: var(--t4); text-decoration: none; display: inline-flex; align-items: center; gap: 4px; font-size: 10.5px; font-weight: 600; letter-spacing: .07em; text-transform: uppercase; transition: color .12s; }
+    .sort-link:hover { color: var(--t1); }
+    .sort-link.on { color: var(--accent); }
+
+    /* ── BADGES ── */
+    .badge { font-size: 10.5px; font-weight: 600; border-radius: 4px; padding: 3px 7px; letter-spacing: .01em; font-family: var(--ff); }
+    .bg-success { background: var(--ok-dim) !important; color: var(--ok) !important; border: 1px solid rgba(34,197,94,.2) !important; }
+    .bg-danger  { background: var(--err-dim) !important; color: var(--err) !important; border: 1px solid rgba(239,68,68,.2) !important; }
+    .bg-warning { background: var(--warn-dim) !important; color: var(--warn) !important; border: 1px solid rgba(245,158,11,.2) !important; color: var(--warn) !important; }
+    .bg-primary { background: var(--accent-dim) !important; color: #a5b4fc !important; border: 1px solid rgba(99,102,241,.2) !important; }
+    .bg-secondary { background: var(--bg2) !important; color: var(--t3) !important; border: 1px solid var(--bg3) !important; }
+
+    /* ── PROGRESS ── */
+    .progress { background: var(--bg2); border-radius: 3px; }
+    .progress-bar { background: var(--accent); transition: width .4s ease; }
+    .progress-bar-animated { animation: progress-bar-stripes 1s linear infinite; }
+
+    /* ── ALERTS ── */
+    .alert { border-radius: var(--r); font-size: 13.5px; border: 1px solid; padding: 11px 16px; }
+    .alert-info    { background: rgba(99,102,241,.1); border-color: rgba(99,102,241,.2); color: #a5b4fc; }
+    .alert-danger  { background: var(--err-dim);       border-color: rgba(239,68,68,.2);   color: #fca5a5; }
+    .alert-success { background: var(--ok-dim);        border-color: rgba(34,197,94,.2);   color: #86efac; }
+    .alert-warning { background: var(--warn-dim);      border-color: rgba(245,158,11,.2);  color: #fcd34d; }
+
+    /* ── PAGINATION ── */
+    .pagination { gap: 3px; }
+    .page-item .page-link { background: var(--bg1); border: 1px solid var(--bg3); color: var(--t3); border-radius: var(--r) !important; font-size: 13px; padding: 5px 10px; font-family: var(--ff); transition: all .12s; }
+    .page-item.active .page-link { background: var(--accent); border-color: var(--accent); color: #fff; }
+    .page-item .page-link:hover { background: var(--bg2); color: var(--t1); }
+
+    /* ── SELECT2 DARK ── */
+    .select2-container--bootstrap-5 .select2-selection,
+    .select2-container--bootstrap-5 .select2-selection--single { background: var(--bg0) !important; border-color: var(--bg3) !important; color: var(--t1) !important; border-radius: var(--r) !important; min-height: 36px; }
+    .select2-container--bootstrap-5 .select2-selection--single .select2-selection__rendered { color: var(--t1) !important; padding: 4px 11px; font-size: 13.5px; font-family: var(--ff); line-height: 28px; }
+    .select2-container--bootstrap-5 .select2-dropdown,
+    .select2-dropdown { background: var(--bg1) !important; border-color: var(--bg3) !important; border-radius: var(--r) !important; box-shadow: 0 10px 40px rgba(0,0,0,.7) !important; }
+    .select2-container--bootstrap-5 .select2-results,
+    .select2-results { background: var(--bg1) !important; }
+    .select2-container--bootstrap-5 .select2-results__options { background: var(--bg1) !important; max-height: 360px !important; }
+    .select2-container--bootstrap-5 .select2-results__option { color: var(--t2) !important; font-size: 13px; padding: 7px 12px; font-family: var(--ff); }
+    .select2-container--bootstrap-5 .select2-results__option--highlighted,
+    .select2-container--bootstrap-5 .select2-results__option--highlighted.select2-results__option--selectable { background: var(--bg2) !important; color: var(--t1) !important; }
+    .select2-container--bootstrap-5 .select2-search--dropdown { background: var(--bg1) !important; padding: 6px; }
+    .select2-container--bootstrap-5 .select2-search__field,
+    .select2-search__field { background: var(--bg0) !important; border: 1px solid var(--bg3) !important; color: var(--t1) !important; border-radius: var(--r) !important; font-size: 13px !important; font-family: var(--ff) !important; }
+    .select2-container--bootstrap-5 .select2-selection__placeholder { color: var(--t4) !important; }
+    .select2-container--bootstrap-5 .select2-selection__arrow b { border-color: var(--t4) transparent transparent transparent !important; }
+    .select2-container--bootstrap-5.select2-container--focus .select2-selection,
+    .select2-container--bootstrap-5.select2-container--open .select2-selection { border-color: var(--accent) !important; box-shadow: 0 0 0 3px var(--accent-dim) !important; }
+
+    /* ── MISC ── */
+    a { color: #a5b4fc; }
+    a:hover { color: var(--accent); }
+    .text-muted { color: var(--t4) !important; }
+    .text-secondary { color: var(--t3) !important; }
+    hr { border-color: var(--bg2); opacity: 1; }
+    .divider { height: 1px; background: var(--bg2); margin: 16px 0; }
+
+    /* ── MOBILE ── */
+    @media (max-width: 768px) {
+      .sidebar { transform: translateX(-100%); transition: transform .22s; }
+      .sidebar.open { transform: translateX(0); }
+      .main { margin-left: 0; }
+      .page-body { padding: 16px; }
+      .mob-toggle { display: flex !important; }
+    }
+    .mob-toggle { display: none; align-items: center; position: fixed; top: 12px; left: 12px; z-index: 200; background: var(--bg1); border: 1px solid var(--bg3); border-radius: var(--r); padding: 6px 9px; color: var(--t2); cursor: pointer; }
+  </style>
+  {% block extra_css %}{% endblock %}
 </head>
 <body>
-    <nav class="navbar navbar-expand-lg navbar-dark bg-dark mb-4">
-        <div class="container">
-            <a class="navbar-brand" href="{% url 'deces:index' %}">INSEE Décès</a>
-            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
-                <span class="navbar-toggler-icon"></span>
-            </button>
-            <div class="collapse navbar-collapse" id="navbarNav">
-                <ul class="navbar-nav me-auto">
-                    {% if user.is_staff %}
-                    <li class="nav-item">
-                        <a class="nav-link" href="{% url 'deces:dashboard' %}">Tableau de bord</a>
-                    </li>
-                    {% endif %}
-                    <li class="nav-item">
-                        <a class="nav-link" href="{% url 'deces:import_data' %}">Importer</a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="{% url 'deces:search' %}?prenoms_flexible=on">Rechercher</a>
-                    </li>
-                </ul>
-                <ul class="navbar-nav">
-                    {% if user.is_authenticated %}
-                        <li class="nav-item">
-                            <a class="nav-link" href="{% url 'account_logout' %}">Se déconnecter</a>
-                        </li>
-                    {% else %}
-                        <li class="nav-item">
-                            <a class="nav-link" href="{% url 'account_login' %}">Se connecter</a>
-                        </li>
-                    {% endif %}
-                </ul>
-            </div>
-        </div>
-    </nav>
 
-    <div class="container">
-        {% block content %}
-        {% endblock %}
+<button class="mob-toggle" id="mob-toggle"><i class="bi bi-list fs-5"></i></button>
+
+<aside class="sidebar" id="sidebar">
+  <div class="sb-logo">
+    <div class="brand"><i class="bi bi-archive"></i> INSEE Décès</div>
+    <div class="ver">Base nationale des décès</div>
+  </div>
+
+  <nav class="sb-nav">
+    <div class="sb-section">Navigation</div>
+
+    {% if user.is_staff %}
+    <a href="{% url 'deces:dashboard' %}"
+       class="nav-item {% if request.resolver_match.url_name == 'dashboard' %}active{% endif %}">
+      <i class="bi bi-grid-1x2"></i><span>Tableau de bord</span>
+    </a>
+    {% endif %}
+
+    <a href="{% url 'deces:search' %}"
+       class="nav-item {% if request.resolver_match.url_name == 'search' or request.resolver_match.url_name == 'export_search' %}active{% endif %}">
+      <i class="bi bi-search"></i><span>Recherche</span>
+    </a>
+
+    {% if user.is_staff %}
+    <div class="sb-section" style="margin-top:8px;">Administration</div>
+    <a href="{% url 'deces:import_data' %}"
+       class="nav-item {% if 'import' in request.resolver_match.url_name %}active{% endif %}">
+      <i class="bi bi-cloud-upload"></i><span>Import</span>
+    </a>
+    {% endif %}
+
+    {% if user.is_superuser %}
+    <a href="{% url 'deces:import-error-list' %}"
+       class="nav-item {% if 'error' in request.resolver_match.url_name %}active{% endif %}">
+      <i class="bi bi-exclamation-triangle"></i><span>Erreurs d'import</span>
+    </a>
+    <a href="{% url 'admin:index' %}" class="nav-item">
+      <i class="bi bi-shield-lock"></i><span>Administration</span>
+    </a>
+    {% endif %}
+  </nav>
+
+  <div class="sb-footer">
+    {% if user.is_authenticated %}
+    <div class="user-row">
+      <div class="user-av">{{ user.email|slice:":1"|upper }}</div>
+      <div>
+        <div class="user-name">{{ user.email|truncatechars:22 }}</div>
+        <div class="user-role">{% if user.is_superuser %}Superutilisateur{% elif user.is_staff %}Staff{% else %}Utilisateur{% endif %}</div>
+      </div>
     </div>
+    <a href="{% url 'account_logout' %}" class="btn-logout">
+      <i class="bi bi-box-arrow-left"></i> Déconnexion
+    </a>
+    {% else %}
+    <a href="{% url 'account_login' %}" class="btn-logout" style="border-color:var(--accent);color:#a5b4fc;">
+      <i class="bi bi-box-arrow-in-right"></i> Connexion
+    </a>
+    {% endif %}
+  </div>
+</aside>
 
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-    {% block extra_js %}{% endblock %}
+<div class="main">
+  {% if messages %}
+  <div style="padding: 16px 32px 0;">
+    {% for message in messages %}
+    <div class="alert alert-{% if message.tags == 'error' or message.tags == 'danger' %}danger{% elif message.tags == 'success' %}success{% elif message.tags == 'warning' %}warning{% else %}info{% endif %} d-flex align-items-center gap-2 mb-2">
+      <i class="bi bi-{% if message.tags == 'error' or message.tags == 'danger' %}x-circle{% elif message.tags == 'success' %}check-circle{% elif message.tags == 'warning' %}exclamation-triangle{% else %}info-circle{% endif %}"></i>
+      {{ message }}
+    </div>
+    {% endfor %}
+  </div>
+  {% endif %}
+
+  {% block content %}{% endblock %}
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+  const tog = document.getElementById('mob-toggle');
+  const sb  = document.getElementById('sidebar');
+  if (tog) tog.addEventListener('click', () => sb.classList.toggle('open'));
+  document.addEventListener('click', e => {
+    if (window.innerWidth < 769 && !sb.contains(e.target) && !tog.contains(e.target))
+      sb.classList.remove('open');
+  });
+</script>
+{% block extra_js %}{% endblock %}
 </body>
 </html>

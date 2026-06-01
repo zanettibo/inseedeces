@@ -1,393 +1,256 @@
 {% extends 'deces/base.html' %}
 
+{% block title %}Recherche — INSEE Décès{% endblock %}
+
 {% block extra_css %}
-<link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
-<link href="https://cdn.jsdelivr.net/npm/select2-bootstrap-5-theme@1.3.0/dist/select2-bootstrap-5-theme.min.css" rel="stylesheet" />
+<link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet">
+<link href="https://cdn.jsdelivr.net/npm/select2-bootstrap-5-theme@1.3.0/dist/select2-bootstrap-5-theme.min.css" rel="stylesheet">
 <style>
-    .select2-results__options {
-        max-height: 400px !important;
-    }
-    .select2-dropdown {
-        max-height: none !important;
-    }
+  .select2-results__options { max-height: 360px !important; }
+  .filter-panel { background: var(--bg1); border: 1px solid var(--bg2); border-radius: var(--r2); padding: 18px; margin-bottom: 16px; }
+  .filter-row { display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-end; }
+  .filter-field { flex: 1; min-width: 140px; }
+  .filter-field.narrow { flex: 0 0 110px; }
+  .filter-field.wide { flex: 2; min-width: 200px; }
+  .date-range { display: flex; gap: 6px; align-items: center; }
+  .date-range span { color: var(--t4); font-size: 12px; flex-shrink: 0; }
+  .flex-check { display: flex; align-items: center; gap: 5px; margin-top: 5px; }
+  .flex-check label { font-size: 11.5px; color: var(--t4); text-transform: none; letter-spacing: 0; font-weight: 400; margin: 0; }
+  .results-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
+  .results-count { font-size: 12px; color: var(--t4); font-family: var(--fm); }
+  .results-count strong { color: var(--t2); font-weight: 600; }
+  .data-cell { font-family: var(--fm); font-size: 12px; color: var(--t2); }
+  .name-cell { font-weight: 600; color: var(--t1); font-size: 13px; }
+  .date-cell { font-family: var(--fm); font-size: 12px; color: var(--t3); white-space: nowrap; }
+  .place-cell { font-size: 12.5px; color: var(--t3); }
 </style>
+{% endblock %}
+
+{% block content %}
+<div class="page-hd">
+  <div class="page-title">Recherche</div>
+  <div class="page-sub">Consultez la base nationale des décès INSEE</div>
+</div>
+
+<div class="page-body">
+  <div class="filter-panel">
+    <form method="get" id="search-form">
+      <div class="filter-row mb-3">
+        <div class="filter-field wide">
+          <label>Nom</label>
+          <input type="text" name="nom" id="nom" class="form-control" value="{{ nom }}" placeholder="MARTIN…">
+          <div class="flex-check">
+            <input type="checkbox" name="nom_flexible" id="nom_flexible" class="form-check-input" {% if nom_flexible == 'on' %}checked{% endif %} style="margin:0;">
+            <label for="nom_flexible">Recherche flexible</label>
+          </div>
+        </div>
+        <div class="filter-field wide">
+          <label>Prénoms</label>
+          <input type="text" name="prenoms" id="prenoms" class="form-control" value="{{ prenoms }}" placeholder="JEAN PIERRE…">
+          <div class="flex-check">
+            <input type="checkbox" name="prenoms_flexible" id="prenoms_flexible" class="form-check-input" {% if prenoms_flexible == 'on' %}checked{% endif %} style="margin:0;">
+            <label for="prenoms_flexible">Recherche flexible</label>
+          </div>
+        </div>
+        <div class="filter-field narrow">
+          <label>Sexe</label>
+          <select name="sexe" class="form-select">
+            <option value="">Tous</option>
+            <option value="1" {% if sexe == '1' %}selected{% endif %}>Masculin</option>
+            <option value="2" {% if sexe == '2' %}selected{% endif %}>Féminin</option>
+          </select>
+          <div style="height:20px;"></div>
+        </div>
+      </div>
+
+      <div class="filter-row mb-3">
+        <div class="filter-field wide">
+          <label>Date de naissance</label>
+          <div class="date-range">
+            <input type="date" name="date_naissance_debut" class="form-control" value="{{ date_naissance_debut|date:'Y-m-d' }}">
+            <span>→</span>
+            <input type="date" name="date_naissance_fin" class="form-control" value="{{ date_naissance_fin|date:'Y-m-d' }}">
+          </div>
+        </div>
+        <div class="filter-field wide">
+          <label>Lieu de naissance</label>
+          <select class="form-select" id="lieu_naissance" name="lieu_naissance" style="width:100%;">
+            {% if request.GET.lieu_naissance %}
+            <option value="{{ request.GET.lieu_naissance }}" selected>{{ selected_lieu_naissance_text }}</option>
+            {% endif %}
+          </select>
+          <input type="hidden" name="lieu_naissance_type" id="lieu_naissance_type" value="{{ request.GET.lieu_naissance_type }}">
+        </div>
+      </div>
+
+      <div class="filter-row mb-3">
+        <div class="filter-field wide">
+          <label>Date de décès</label>
+          <div class="date-range">
+            <input type="date" name="date_deces_debut" class="form-control" value="{{ date_deces_debut|date:'Y-m-d' }}">
+            <span>→</span>
+            <input type="date" name="date_deces_fin" class="form-control" value="{{ date_deces_fin|date:'Y-m-d' }}">
+          </div>
+        </div>
+        <div class="filter-field wide">
+          <label>Lieu de décès</label>
+          <select class="form-select" id="lieu_deces" name="lieu_deces" style="width:100%;">
+            {% if request.GET.lieu_deces %}
+            <option value="{{ request.GET.lieu_deces }}" selected>{{ selected_lieu_deces_text }}</option>
+            {% endif %}
+          </select>
+          <input type="hidden" name="lieu_deces_type" id="lieu_deces_type" value="{{ request.GET.lieu_deces_type }}">
+        </div>
+      </div>
+
+      <div class="d-flex align-items-center gap-2 flex-wrap">
+        <button type="submit" class="btn btn-primary"><i class="bi bi-search me-1"></i>Rechercher</button>
+        <a href="{% url 'deces:search' %}" class="btn btn-outline-secondary">Réinitialiser</a>
+        {% if has_search_criteria and page_obj %}
+        <a href="{% url 'deces:export_search' %}?{{ request.GET.urlencode }}"
+           class="btn btn-outline-success ms-auto">
+          <i class="bi bi-download me-1"></i>Exporter CSV
+          {% if page_obj.paginator.count > 50000 %}
+          <span class="badge bg-warning ms-1">50 000 max</span>
+          {% else %}
+          <span class="badge bg-secondary ms-1">{{ page_obj.paginator.count }}</span>
+          {% endif %}
+        </a>
+        {% endif %}
+      </div>
+    </form>
+  </div>
+
+  {% if page_obj %}
+  <div class="results-header">
+    <span class="results-count">
+      <strong>{{ page_obj.paginator.count }}</strong> résultat{{ page_obj.paginator.count|pluralize }} —
+      page {{ page_obj.number }} / {{ page_obj.paginator.num_pages }}
+    </span>
+  </div>
+
+  <div class="card">
+    <div class="table-responsive">
+      <table class="table table-hover">
+        <thead>
+          <tr>
+            <th><a href="?{% for k,v in request.GET.items %}{% if k != 'order_by' and k != 'order_dir' %}{{ k }}={{ v }}&{% endif %}{% endfor %}order_by=nom&order_dir={% if order_by == 'nom' and order_dir == 'asc' %}desc{% else %}asc{% endif %}" class="sort-link {% if order_by == 'nom' %}on{% endif %}">Nom <i class="bi bi-chevron-{% if order_by == 'nom' %}{% if order_dir == 'asc' %}up{% else %}down{% endif %}{% else %}expand{% endif %}"></i></a></th>
+            <th><a href="?{% for k,v in request.GET.items %}{% if k != 'order_by' and k != 'order_dir' %}{{ k }}={{ v }}&{% endif %}{% endfor %}order_by=prenoms&order_dir={% if order_by == 'prenoms' and order_dir == 'asc' %}desc{% else %}asc{% endif %}" class="sort-link {% if order_by == 'prenoms' %}on{% endif %}">Prénoms <i class="bi bi-chevron-{% if order_by == 'prenoms' %}{% if order_dir == 'asc' %}up{% else %}down{% endif %}{% else %}expand{% endif %}"></i></a></th>
+            <th><a href="?{% for k,v in request.GET.items %}{% if k != 'order_by' and k != 'order_dir' %}{{ k }}={{ v }}&{% endif %}{% endfor %}order_by=date_naissance&order_dir={% if order_by == 'date_naissance' and order_dir == 'asc' %}desc{% else %}asc{% endif %}" class="sort-link {% if order_by == 'date_naissance' %}on{% endif %}">Naissance <i class="bi bi-chevron-{% if order_by == 'date_naissance' %}{% if order_dir == 'asc' %}up{% else %}down{% endif %}{% else %}expand{% endif %}"></i></a></th>
+            <th><a href="?{% for k,v in request.GET.items %}{% if k != 'order_by' and k != 'order_dir' %}{{ k }}={{ v }}&{% endif %}{% endfor %}order_by=lieu_naissance&order_dir={% if order_by == 'lieu_naissance' and order_dir == 'asc' %}desc{% else %}asc{% endif %}" class="sort-link {% if order_by == 'lieu_naissance' %}on{% endif %}">Lieu naiss. <i class="bi bi-chevron-{% if order_by == 'lieu_naissance' %}{% if order_dir == 'asc' %}up{% else %}down{% endif %}{% else %}expand{% endif %}"></i></a></th>
+            <th><a href="?{% for k,v in request.GET.items %}{% if k != 'order_by' and k != 'order_dir' %}{{ k }}={{ v }}&{% endif %}{% endfor %}order_by=date_deces&order_dir={% if order_by == 'date_deces' and order_dir == 'asc' %}desc{% else %}asc{% endif %}" class="sort-link {% if order_by == 'date_deces' %}on{% endif %}">Décès <i class="bi bi-chevron-{% if order_by == 'date_deces' %}{% if order_dir == 'asc' %}up{% else %}down{% endif %}{% else %}expand{% endif %}"></i></a></th>
+            <th><a href="?{% for k,v in request.GET.items %}{% if k != 'order_by' and k != 'order_dir' %}{{ k }}={{ v }}&{% endif %}{% endfor %}order_by=lieu_deces&order_dir={% if order_by == 'lieu_deces' and order_dir == 'asc' %}desc{% else %}asc{% endif %}" class="sort-link {% if order_by == 'lieu_deces' %}on{% endif %}">Lieu décès <i class="bi bi-chevron-{% if order_by == 'lieu_deces' %}{% if order_dir == 'asc' %}up{% else %}down{% endif %}{% else %}expand{% endif %}"></i></a></th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for deces in page_obj %}
+          <tr>
+            <td class="name-cell">{{ deces.nom }}</td>
+            <td class="data-cell">{{ deces.prenoms }}</td>
+            <td class="date-cell">{{ deces.date_naissance|date:"d/m/Y"|default:"—" }}</td>
+            <td class="place-cell">
+              {% if deces.lieu_naissance|slice:":2" == "99" %}
+                {{ deces.lieu_naissance_nom }}{% if deces.lieu_naissance_libelle %}, {{ deces.lieu_naissance_libelle }}{% endif %}
+              {% else %}
+                {{ deces.lieu_naissance_libelle|default:deces.lieu_naissance }}
+              {% endif %}
+            </td>
+            <td class="date-cell">{{ deces.date_deces|date:"d/m/Y" }}</td>
+            <td class="place-cell">{{ deces.lieu_deces_libelle|default:deces.lieu_deces }}</td>
+          </tr>
+          {% empty %}
+          <tr><td colspan="6" class="text-center py-4" style="color:var(--t4);">Aucun résultat</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  {% if page_obj.paginator.num_pages > 1 %}
+  <nav class="mt-3">
+    <ul class="pagination pagination-sm justify-content-center">
+      {% if page_obj.number != 1 %}
+      <li class="page-item"><a class="page-link" href="?{% for k,v in request.GET.items %}{% if k != 'page' %}{{ k }}={{ v }}&{% endif %}{% endfor %}page=1">«</a></li>
+      {% endif %}
+      {% if page_obj.has_previous %}
+      {% with prev_10=page_obj.number|add:'-10' %}
+        {% if prev_10 >= 1 %}<li class="page-item"><a class="page-link" href="?{% for k,v in request.GET.items %}{% if k != 'page' %}{{ k }}={{ v }}&{% endif %}{% endfor %}page={{ prev_10 }}">-10</a></li>{% endif %}
+      {% endwith %}
+      <li class="page-item"><a class="page-link" href="?{% for k,v in request.GET.items %}{% if k != 'page' %}{{ k }}={{ v }}&{% endif %}{% endfor %}page={{ page_obj.previous_page_number }}">‹</a></li>
+      {% endif %}
+
+      {% for i in page_obj.paginator.page_range %}
+        {% if page_obj.number == i %}
+          <li class="page-item active"><span class="page-link">{{ i }}</span></li>
+        {% elif i > page_obj.number|add:'-3' and i < page_obj.number|add:'3' %}
+          <li class="page-item"><a class="page-link" href="?{% for k,v in request.GET.items %}{% if k != 'page' %}{{ k }}={{ v }}&{% endif %}{% endfor %}page={{ i }}">{{ i }}</a></li>
+        {% endif %}
+      {% endfor %}
+
+      {% if page_obj.has_next %}
+      <li class="page-item"><a class="page-link" href="?{% for k,v in request.GET.items %}{% if k != 'page' %}{{ k }}={{ v }}&{% endif %}{% endfor %}page={{ page_obj.next_page_number }}">›</a></li>
+      {% with next_10=page_obj.number|add:'10' %}
+        {% if next_10 <= page_obj.paginator.num_pages %}<li class="page-item"><a class="page-link" href="?{% for k,v in request.GET.items %}{% if k != 'page' %}{{ k }}={{ v }}&{% endif %}{% endfor %}page={{ next_10 }}">+10</a></li>{% endif %}
+      {% endwith %}
+      {% endif %}
+      {% if page_obj.number != page_obj.paginator.num_pages %}
+      <li class="page-item"><a class="page-link" href="?{% for k,v in request.GET.items %}{% if k != 'page' %}{{ k }}={{ v }}&{% endif %}{% endfor %}page={{ page_obj.paginator.num_pages }}">»</a></li>
+      {% endif %}
+    </ul>
+  </nav>
+  {% endif %}
+
+  {% elif has_search_criteria %}
+  <div class="alert alert-info"><i class="bi bi-info-circle me-2"></i>Aucun résultat pour ces critères.</div>
+  {% else %}
+  <div class="alert alert-info"><i class="bi bi-info-circle me-2"></i>Saisissez au moins un critère pour lancer la recherche.</div>
+  {% endif %}
+</div>
 {% endblock %}
 
 {% block extra_js %}
 <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
 <script>
-    function setupFlexibleInput(inputId, flexibleId) {
-        const input = document.getElementById(inputId);
-        const flexible = document.getElementById(flexibleId);
+function setupFlexibleInput(inputId, flexId) {
+  const inp = document.getElementById(inputId);
+  const chk = document.getElementById(flexId);
+  function sync() { if (!chk.checked && inp.value) inp.value = inp.value.toUpperCase(); }
+  inp.addEventListener('input', sync);
+  chk.addEventListener('change', sync);
+}
+document.addEventListener('DOMContentLoaded', function() {
+  setupFlexibleInput('nom', 'nom_flexible');
+  setupFlexibleInput('prenoms', 'prenoms_flexible');
 
-        function updateCase() {
-            if (!flexible.checked && input.value) {
-                input.value = input.value.toUpperCase();
-            }
-        }
+  function initLieu(selId, typeId) {
+    var $s = $('#' + selId);
+    $s.select2({
+      theme: 'bootstrap-5', placeholder: 'Rechercher un lieu…', allowClear: true,
+      minimumInputLength: 2, width: '100%', dropdownParent: $('body'),
+      language: { inputTooShort: () => 'Au moins 2 caractères', noResults: () => 'Aucun résultat',
+                  searching: () => 'Recherche…', loadingMore: () => 'Chargement…' },
+      ajax: {
+        url: '{% url "deces:autocomplete_lieu" %}', dataType: 'json', delay: 250,
+        data: p => ({ q: p.term, page: p.page }),
+        processResults: d => ({ results: d.results, pagination: d.pagination }),
+        cache: true
+      }
+    }).on('select2:select', e => $('#' + typeId).val(e.params.data.type))
+      .on('select2:clear',  () => $('#' + typeId).val(''));
+  }
 
-        input.addEventListener('input', updateCase);
-        flexible.addEventListener('change', updateCase);
-    }
+  initLieu('lieu_naissance', 'lieu_naissance_type');
+  initLieu('lieu_deces', 'lieu_deces_type');
 
-    document.addEventListener('DOMContentLoaded', function() {
-        // Configuration pour le nom et les prénoms
-        setupFlexibleInput('nom', 'nom_flexible');
-        setupFlexibleInput('prenoms', 'prenoms_flexible');
-
-        // Configuration de Select2 pour les lieux
-        if ($.fn.select2) {
-            function initializeLieuSelect(selectId, typeId) {
-                var $select = $('#' + selectId);
-                var initialData = null;
-
-                $select.select2({
-                    theme: 'bootstrap-5',
-                    placeholder: 'Rechercher un lieu...',
-                    allowClear: true,
-                    minimumInputLength: 2,
-                    width: '100%',
-                    dropdownParent: $('body'),
-                    language: {
-                        inputTooShort: function() {
-                            return 'Veuillez saisir au moins 2 caractères';
-                        },
-                        noResults: function() {
-                            return 'Aucun résultat trouvé';
-                        },
-                        searching: function() {
-                            return 'Recherche en cours...';
-                        },
-                        loadingMore: function() {
-                            return 'Chargement de résultats supplémentaires...';
-                        }
-                    },
-                    ajax: {
-                        url: '{% url "deces:autocomplete_lieu" %}',
-                        dataType: 'json',
-                        delay: 250,
-                        data: function(params) {
-                            return {
-                                q: params.term,
-                                page: params.page
-                            };
-                        },
-                        processResults: function(data) {
-                            return {
-                                results: data.results,
-                                pagination: data.pagination
-                            };
-                        },
-                        cache: true
-                    }
-                }).on('select2:select', function(e) {
-                    $('#' + typeId).val(e.params.data.type);
-                }).on('select2:clear', function() {
-                    $('#' + typeId).val('');
-                });
-
-                return $select;
-            }
-
-            // Initialiser le select du lieu de naissance
-            var $lieuNaissanceSelect = initializeLieuSelect('lieu_naissance', 'lieu_naissance_type');
-            {% if request.GET.lieu_naissance and selected_lieu_naissance_text %}
-                var initialNaissanceData = {
-                    id: '{{ request.GET.lieu_naissance }}',
-                    text: '{{ selected_lieu_naissance_text|escapejs }}'
-                };
-                var optionNaissance = new Option(initialNaissanceData.text, initialNaissanceData.id, true, true);
-                $lieuNaissanceSelect.append(optionNaissance).trigger('change');
-            {% endif %}
-
-            // Initialiser le select du lieu de décès
-            var $lieuDecesSelect = initializeLieuSelect('lieu_deces', 'lieu_deces_type');
-            {% if request.GET.lieu_deces and selected_lieu_deces_text %}
-                var initialDecesData = {
-                    id: '{{ request.GET.lieu_deces }}',
-                    text: '{{ selected_lieu_deces_text|escapejs }}'
-                };
-                var optionDeces = new Option(initialDecesData.text, initialDecesData.id, true, true);
-                $lieuDecesSelect.append(optionDeces).trigger('change');
-            {% endif %}
-        }
-    });
+  {% if request.GET.lieu_naissance and selected_lieu_naissance_text %}
+  var $ln = $('#lieu_naissance');
+  $ln.append(new Option('{{ selected_lieu_naissance_text|escapejs }}', '{{ request.GET.lieu_naissance }}', true, true)).trigger('change');
+  {% endif %}
+  {% if request.GET.lieu_deces and selected_lieu_deces_text %}
+  var $ld = $('#lieu_deces');
+  $ld.append(new Option('{{ selected_lieu_deces_text|escapejs }}', '{{ request.GET.lieu_deces }}', true, true)).trigger('change');
+  {% endif %}
+});
 </script>
 {% endblock %}
-
-{% block content %}
-<div class="row justify-content-center">
-    <div class="col-md-12">
-        <div class="card">
-            <div class="card-body">
-                <h2 class="card-title mb-4">Rechercher dans la base de données</h2>
-                
-                <form method="get" class="mb-4">
-                    <div class="row g-3">
-                        <!-- Ligne 1 : Nom, Prénoms, Sexe -->
-                        <div class="col-md-5">
-                            <label for="nom" class="form-label">Nom</label>
-                            <div class="input-group">
-                                <input type="text" name="nom" id="nom" class="form-control" value="{{ nom }}">
-                                <div class="input-group-text">
-                                    <div class="form-check mb-0">
-                                        <input type="checkbox" name="nom_flexible" id="nom_flexible" class="form-check-input" {% if nom_flexible == 'on' %}checked{% endif %}>
-                                        <label class="form-check-label" for="nom_flexible">Recherche flexible</label>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="col-md-5">
-                            <label for="prenoms" class="form-label">Prénoms</label>
-                            <div class="input-group">
-                                <input type="text" name="prenoms" id="prenoms" class="form-control" value="{{ prenoms }}">
-                                <div class="input-group-text">
-                                    <div class="form-check mb-0">
-                                        <input type="checkbox" name="prenoms_flexible" id="prenoms_flexible" class="form-check-input" {% if prenoms_flexible == 'on' %}checked{% endif %}>
-                                        <label class="form-check-label" for="prenoms_flexible">Recherche flexible</label>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="col-md-2">
-                            <label for="sexe" class="form-label">Sexe</label>
-                            <select name="sexe" id="sexe" class="form-select">
-                                <option value="">Tous</option>
-                                <option value="1" {% if sexe == '1' %}selected{% endif %}>Masculin</option>
-                                <option value="2" {% if sexe == '2' %}selected{% endif %}>Féminin</option>
-                            </select>
-                        </div>
-
-                        <!-- Ligne 2 : Date et Lieu de naissance -->
-                        <div class="row g-2 mb-2">
-                            <div class="col-md-6">
-                                <div class="row">
-                                    <div class="col-12 mb-1">
-                                        <label class="form-label mb-0">Date de naissance</label>
-                                    </div>
-                                    <div class="col-6">
-                                        <input type="date" name="date_naissance_debut" id="date_naissance_debut" class="form-control" value="{{ date_naissance_debut|date:'Y-m-d' }}" placeholder="Date de début">
-                                    </div>
-                                    <div class="col-6">
-                                        <input type="date" name="date_naissance_fin" id="date_naissance_fin" class="form-control" value="{{ date_naissance_fin|date:'Y-m-d' }}" placeholder="Date de fin">
-                                    </div>
-                                </div>
-                            </div>
-                            <div class="col-md-6">
-                                <div class="row">
-                                    <div class="col-12 mb-1">
-                                        <label for="lieu_naissance" class="form-label mb-0">Lieu de naissance</label>
-                                    </div>
-                                    <div class="col-12">
-                                        <select class="form-select" id="lieu_naissance" name="lieu_naissance" style="width: 100%;">
-                                            {% if request.GET.lieu_naissance %}
-                                                <option value="{{ request.GET.lieu_naissance }}" selected>{{ selected_lieu_naissance_text }}</option>
-                                            {% endif %}
-                                        </select>
-                                        <input type="hidden" name="lieu_naissance_type" id="lieu_naissance_type" value="{{ request.GET.lieu_naissance_type }}">
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- Ligne 3 : Date et Lieu de décès -->
-                        <div class="row g-2">
-                            <div class="col-md-6">
-                                <div class="row">
-                                    <div class="col-12 mb-1">
-                                        <label class="form-label mb-0">Date de décès</label>
-                                    </div>
-                                    <div class="col-6">
-                                        <input type="date" name="date_deces_debut" id="date_deces_debut" class="form-control" value="{{ date_deces_debut|date:'Y-m-d' }}" placeholder="Date de début">
-                                    </div>
-                                    <div class="col-6">
-                                        <input type="date" name="date_deces_fin" id="date_deces_fin" class="form-control" value="{{ date_deces_fin|date:'Y-m-d' }}" placeholder="Date de fin">
-                                    </div>
-                                </div>
-                            </div>
-                            <div class="col-md-6">
-                                <div class="row">
-                                    <div class="col-12 mb-1">
-                                        <label for="lieu_deces" class="form-label mb-0">Lieu de décès</label>
-                                    </div>
-                                    <div class="col-12">
-                                        <select class="form-select" id="lieu_deces" name="lieu_deces" style="width: 100%;">
-                                            {% if request.GET.lieu_deces %}
-                                                <option value="{{ request.GET.lieu_deces }}" selected>{{ selected_lieu_deces_text }}</option>
-                                            {% endif %}
-                                        </select>
-                                        <input type="hidden" name="lieu_deces_type" id="lieu_deces_type" value="{{ request.GET.lieu_deces_type }}">
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                        
-                        <div class="col-12 d-flex align-items-center gap-2">
-                            <button type="submit" class="btn btn-primary">Rechercher</button>
-                            <a href="{% url 'deces:search' %}" class="btn btn-outline-secondary">Réinitialiser</a>
-                            {% if has_search_criteria %}
-                            <a href="{% url 'deces:export_search' %}?{{ request.GET.urlencode }}"
-                               class="btn btn-outline-success ms-auto">
-                                <i class="bi bi-download"></i> Exporter CSV
-                                {% if page_obj.paginator.count > 50000 %}
-                                <span class="badge bg-warning text-dark ms-1">50 000 max</span>
-                                {% else %}
-                                <span class="badge bg-secondary ms-1">{{ page_obj.paginator.count }}</span>
-                                {% endif %}
-                            </a>
-                            {% endif %}
-                        </div>
-                    </div>
-                </form>
-
-                {% if page_obj %}
-                    <div class="table-responsive">
-                        <table class="table table-striped">
-                            <thead>
-                                <tr>
-                                    <th>
-                                        <a href="?{% for key, value in request.GET.items %}{% if key != 'order_by' and key != 'order_dir' %}{{ key }}={{ value }}&{% endif %}{% endfor %}order_by=nom&order_dir={% if order_by == 'nom' and order_dir == 'asc' %}desc{% else %}asc{% endif %}" class="text-dark text-decoration-none">
-                                            Nom
-                                            {% if order_by == 'nom' %}
-                                                <i class="bi bi-arrow-{% if order_dir == 'asc' %}up{% else %}down{% endif %}-short"></i>
-                                            {% endif %}
-                                        </a>
-                                    </th>
-                                    <th>
-                                        <a href="?{% for key, value in request.GET.items %}{% if key != 'order_by' and key != 'order_dir' %}{{ key }}={{ value }}&{% endif %}{% endfor %}order_by=prenoms&order_dir={% if order_by == 'prenoms' and order_dir == 'asc' %}desc{% else %}asc{% endif %}" class="text-dark text-decoration-none">
-                                            Prénoms
-                                            {% if order_by == 'prenoms' %}
-                                                <i class="bi bi-arrow-{% if order_dir == 'asc' %}up{% else %}down{% endif %}-short"></i>
-                                            {% endif %}
-                                        </a>
-                                    </th>
-                                    <th>
-                                        <a href="?{% for key, value in request.GET.items %}{% if key != 'order_by' and key != 'order_dir' %}{{ key }}={{ value }}&{% endif %}{% endfor %}order_by=date_naissance&order_dir={% if order_by == 'date_naissance' and order_dir == 'asc' %}desc{% else %}asc{% endif %}" class="text-dark text-decoration-none">
-                                            Date de naissance
-                                            {% if order_by == 'date_naissance' %}
-                                                <i class="bi bi-arrow-{% if order_dir == 'asc' %}up{% else %}down{% endif %}-short"></i>
-                                            {% endif %}
-                                        </a>
-                                    </th>
-                                    <th>
-                                        <a href="?{% for key, value in request.GET.items %}{% if key != 'order_by' and key != 'order_dir' %}{{ key }}={{ value }}&{% endif %}{% endfor %}order_by=lieu_naissance&order_dir={% if order_by == 'lieu_naissance' and order_dir == 'asc' %}desc{% else %}asc{% endif %}" class="text-dark text-decoration-none">
-                                            Lieu de naissance
-                                            {% if order_by == 'lieu_naissance' %}
-                                                <i class="bi bi-arrow-{% if order_dir == 'asc' %}up{% else %}down{% endif %}-short"></i>
-                                            {% endif %}
-                                        </a>
-                                    </th>
-                                    <th>
-                                        <a href="?{% for key, value in request.GET.items %}{% if key != 'order_by' and key != 'order_dir' %}{{ key }}={{ value }}&{% endif %}{% endfor %}order_by=date_deces&order_dir={% if order_by == 'date_deces' and order_dir == 'asc' %}desc{% else %}asc{% endif %}" class="text-dark text-decoration-none">
-                                            Date de décès
-                                            {% if order_by == 'date_deces' %}
-                                                <i class="bi bi-arrow-{% if order_dir == 'asc' %}up{% else %}down{% endif %}-short"></i>
-                                            {% endif %}
-                                        </a>
-                                    </th>
-                                    <th>
-                                        <a href="?{% for key, value in request.GET.items %}{% if key != 'order_by' and key != 'order_dir' %}{{ key }}={{ value }}&{% endif %}{% endfor %}order_by=lieu_deces&order_dir={% if order_by == 'lieu_deces' and order_dir == 'asc' %}desc{% else %}asc{% endif %}" class="text-dark text-decoration-none">
-                                            Lieu de décès
-                                            {% if order_by == 'lieu_deces' %}
-                                                <i class="bi bi-arrow-{% if order_dir == 'asc' %}up{% else %}down{% endif %}-short"></i>
-                                            {% endif %}
-                                        </a>
-                                    </th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {% for deces in page_obj %}
-                                <tr>
-                                    <td>{{ deces.nom }}</td>
-                                    <td>{{ deces.prenoms }}</td>
-                                    <td>{{ deces.date_naissance|date:"d/m/Y"|default:"INCONNUE" }}</td>
-                                    <td>
-                                        {% if deces.lieu_naissance|slice:":2" == "99" %}
-                                            {{ deces.lieu_naissance_nom }}{% if deces.lieu_naissance_libelle %}, {{ deces.lieu_naissance_libelle }}{% endif %}
-                                        {% else %}
-                                            {{ deces.lieu_naissance_libelle|default:deces.lieu_naissance }}
-                                        {% endif %}
-                                    </td>
-                                    <td>{{ deces.date_deces|date:"d/m/Y" }}</td>
-                                    <td>{{ deces.lieu_deces_libelle|default:deces.lieu_deces }}</td>
-                                </tr>
-                                {% endfor %}
-                            </tbody>
-                        </table>
-                    </div>
-
-                    {% if page_obj.paginator.num_pages > 1 %}
-                    <nav aria-label="Pagination" class="mt-4">
-                        <ul class="pagination justify-content-center">
-                            {% if page_obj.number != 1 %}
-                                <li class="page-item">
-                                    <a class="page-link" href="?nom={{ nom }}&nom_flexible={{ nom_flexible }}&prenoms={{ prenoms }}&prenoms_flexible={{ prenoms_flexible }}&sexe={{ sexe }}&date_naissance_debut={{ date_naissance_debut }}&date_naissance_fin={{ date_naissance_fin }}&date_deces_debut={{ date_deces_debut }}&date_deces_fin={{ date_deces_fin }}&lieu_naissance={{ lieu_naissance }}&lieu_naissance_type={{ lieu_naissance_type }}&lieu_deces={{ lieu_deces }}&lieu_deces_type={{ lieu_deces_type }}&page=1&order_by={{ order_by }}&order_dir={{ order_dir }}" title="Première page">&laquo;</a>
-                                </li>
-                            {% endif %}
-                            {% if page_obj.has_previous %}
-                                {% with prev_10=page_obj.number|add:'-10' %}
-                                    {% if prev_10 >= 1 %}
-                                        <li class="page-item">
-                                            <a class="page-link" href="?nom={{ nom }}&nom_flexible={{ nom_flexible }}&prenoms={{ prenoms }}&prenoms_flexible={{ prenoms_flexible }}&sexe={{ sexe }}&date_naissance_debut={{ date_naissance_debut }}&date_naissance_fin={{ date_naissance_fin }}&date_deces_debut={{ date_deces_debut }}&date_deces_fin={{ date_deces_fin }}&lieu_naissance={{ lieu_naissance }}&lieu_naissance_type={{ lieu_naissance_type }}&lieu_deces={{ lieu_deces }}&lieu_deces_type={{ lieu_deces_type }}&page={{ prev_10 }}&order_by={{ order_by }}&order_dir={{ order_dir }}" title="Reculer de 10 pages">-10</a>
-                                        </li>
-                                    {% endif %}
-                                {% endwith %}
-                                <li class="page-item">
-                                    <a class="page-link" href="?nom={{ nom }}&nom_flexible={{ nom_flexible }}&prenoms={{ prenoms }}&prenoms_flexible={{ prenoms_flexible }}&sexe={{ sexe }}&date_naissance_debut={{ date_naissance_debut }}&date_naissance_fin={{ date_naissance_fin }}&date_deces_debut={{ date_deces_debut }}&date_deces_fin={{ date_deces_fin }}&lieu_naissance={{ lieu_naissance }}&lieu_naissance_type={{ lieu_naissance_type }}&lieu_deces={{ lieu_deces }}&lieu_deces_type={{ lieu_deces_type }}&page={{ page_obj.previous_page_number }}&order_by={{ order_by }}&order_dir={{ order_dir }}">Précédent</a>
-                                </li>
-                            {% endif %}
-
-                            {% for i in page_obj.paginator.page_range %}
-                                {% if page_obj.number == i %}
-                                    <li class="page-item active">
-                                        <span class="page-link">{{ i }}</span>
-                                    </li>
-                                {% elif i > page_obj.number|add:'-3' and i < page_obj.number|add:'3' %}
-                                    <li class="page-item">
-                                        <a class="page-link" href="?nom={{ nom }}&nom_flexible={{ nom_flexible }}&prenoms={{ prenoms }}&prenoms_flexible={{ prenoms_flexible }}&sexe={{ sexe }}&date_naissance_debut={{ date_naissance_debut }}&date_naissance_fin={{ date_naissance_fin }}&date_deces_debut={{ date_deces_debut }}&date_deces_fin={{ date_deces_fin }}&lieu_naissance={{ lieu_naissance }}&lieu_naissance_type={{ lieu_naissance_type }}&lieu_deces={{ lieu_deces }}&lieu_deces_type={{ lieu_deces_type }}&page={{ i }}&order_by={{ order_by }}&order_dir={{ order_dir }}">{{ i }}</a>
-                                    </li>
-                                {% endif %}
-                            {% endfor %}
-
-                            {% if page_obj.has_next %}
-                                <li class="page-item">
-                                    <a class="page-link" href="?nom={{ nom }}&nom_flexible={{ nom_flexible }}&prenoms={{ prenoms }}&prenoms_flexible={{ prenoms_flexible }}&sexe={{ sexe }}&date_naissance_debut={{ date_naissance_debut }}&date_naissance_fin={{ date_naissance_fin }}&date_deces_debut={{ date_deces_debut }}&date_deces_fin={{ date_deces_fin }}&lieu_naissance={{ lieu_naissance }}&lieu_naissance_type={{ lieu_naissance_type }}&lieu_deces={{ lieu_deces }}&lieu_deces_type={{ lieu_deces_type }}&page={{ page_obj.next_page_number }}&order_by={{ order_by }}&order_dir={{ order_dir }}">Suivant</a>
-                                </li>
-                                {% with next_10=page_obj.number|add:'10' %}
-                                    {% if next_10 <= page_obj.paginator.num_pages %}
-                                        <li class="page-item">
-                                            <a class="page-link" href="?nom={{ nom }}&nom_flexible={{ nom_flexible }}&prenoms={{ prenoms }}&prenoms_flexible={{ prenoms_flexible }}&sexe={{ sexe }}&date_naissance_debut={{ date_naissance_debut }}&date_naissance_fin={{ date_naissance_fin }}&date_deces_debut={{ date_deces_debut }}&date_deces_fin={{ date_deces_fin }}&lieu_naissance={{ lieu_naissance }}&lieu_naissance_type={{ lieu_naissance_type }}&lieu_deces={{ lieu_deces }}&lieu_deces_type={{ lieu_deces_type }}&page={{ next_10 }}&order_by={{ order_by }}&order_dir={{ order_dir }}" title="Avancer de 10 pages">+10</a>
-                                        </li>
-                                    {% endif %}
-                                {% endwith %}
-                            {% endif %}
-                            {% if page_obj.number != page_obj.paginator.num_pages %}
-                                <li class="page-item">
-                                    <a class="page-link" href="?nom={{ nom }}&nom_flexible={{ nom_flexible }}&prenoms={{ prenoms }}&prenoms_flexible={{ prenoms_flexible }}&sexe={{ sexe }}&date_naissance_debut={{ date_naissance_debut }}&date_naissance_fin={{ date_naissance_fin }}&date_deces_debut={{ date_deces_debut }}&date_deces_fin={{ date_deces_fin }}&lieu_naissance={{ lieu_naissance }}&lieu_naissance_type={{ lieu_naissance_type }}&lieu_deces={{ lieu_deces }}&lieu_deces_type={{ lieu_deces_type }}&page={{ page_obj.paginator.num_pages }}&order_by={{ order_by }}&order_dir={{ order_dir }}" title="Dernière page">&raquo;</a>
-                                </li>
-                            {% endif %}
-                        </ul>
-                    </nav>
-                    {% endif %}
-
-                    <p class="text-center mt-3">
-                        Page {{ page_obj.number }} sur {{ page_obj.paginator.num_pages }}
-                        ({{ page_obj.paginator.count }} résultat{{ page_obj.paginator.count|pluralize }})
-                    </p>
-                {% elif has_search_criteria %}
-                    <div class="alert alert-info">
-                        Aucun résultat trouvé pour les critères spécifiés.
-                    </div>
-                {% else %}
-                    <div class="alert alert-info">
-                        Veuillez saisir au moins un critère de recherche.
-                    </div>
-                {% endif %}
-            </div>
-        </div>
-    </div>
-</div>
-{% endblock %}
-
-
