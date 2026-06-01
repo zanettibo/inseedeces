@@ -1,4 +1,11 @@
-from django.db.models import Sum
+import math
+import logging
+from functools import reduce
+from datetime import date as date_type
+
+logger = logging.getLogger(__name__)
+
+from django.db.models import Sum, Q
 from django.http import JsonResponse
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
@@ -6,18 +13,45 @@ from django.contrib.auth.mixins import LoginRequiredMixin
 from django.urls import reverse
 from django.contrib import messages
 from django.views.generic import ListView, UpdateView, DetailView
-from django.http import JsonResponse
-from django.db.models import Q, Value, CharField, Case, When, OuterRef, Subquery, F
-from django.db.models.functions import Concat
-from .models import Deces, Commune, Region, Departement, Pays
-from django.views.decorators.cache import cache_page
 from django.core.paginator import Paginator
-from .models import Deces, ImportHistory, DecesImportError
 from django.views.decorators.http import require_http_methods
 from django.views.decorators.cache import cache_page
 from django.core.cache import cache
+from django.urls import reverse
+
+from .models import Deces, Commune, Region, Departement, Pays, ImportHistory, DecesImportError
 from .tasks import process_insee_file
 from .forms import ImportErrorForm
+
+
+class MeiliPaginator:
+    def __init__(self, total, page_size):
+        self.count = total
+        self.per_page = page_size
+        self.num_pages = max(1, math.ceil(total / page_size))
+        self.page_range = range(1, self.num_pages + 1)
+
+
+class MeiliPage:
+    def __init__(self, object_list, number, paginator):
+        self.object_list = object_list
+        self.number = number
+        self.paginator = paginator
+
+    def has_previous(self):
+        return self.number > 1
+
+    def has_next(self):
+        return self.number < self.paginator.num_pages
+
+    def previous_page_number(self):
+        return self.number - 1
+
+    def next_page_number(self):
+        return self.number + 1
+
+    def __iter__(self):
+        return iter(self.object_list)
 
 def rate_limit(key_prefix, limit=60):
     def decorator(view_func):
@@ -80,8 +114,8 @@ def import_data(request):
                 'message': 'Import lancé. Les fichiers CSV non déjà importés seront traités.'
             })
 
-        except Exception as e:
-            return JsonResponse({'error': str(e)}, status=500)
+        except Exception:
+            return JsonResponse({'error': 'Erreur interne, veuillez réessayer.'}, status=500)
 
     imports = ImportHistory.objects.all().order_by('-csv_filename')
     stats = ImportHistory.objects.filter(status__in=['completed', 'processing']).aggregate(
@@ -112,6 +146,44 @@ def import_status(request, import_id):
         })
     except ImportHistory.DoesNotExist:
         return JsonResponse({'error': 'Import non trouvé'}, status=404)
+
+@login_required
+@require_http_methods(['GET'])
+def import_status_stream(request, import_id):
+    import json, time
+    from django.http import StreamingHttpResponse
+
+    TERMINAL = {'completed', 'failed'}
+    MAX_SECONDS = 30 * 60
+
+    def event_stream():
+        elapsed = 0
+        while elapsed < MAX_SECONDS:
+            try:
+                ih = ImportHistory.objects.get(id=import_id)
+                payload = json.dumps({
+                    'status': ih.status,
+                    'status_display': ih.get_status_display(),
+                    'records_processed': ih.records_processed,
+                    'total_records': ih.total_records,
+                    'error_message': ih.error_message,
+                    'pending_errors': ih.pending_errors,
+                })
+                yield f"data: {payload}\n\n"
+                if ih.status in TERMINAL:
+                    break
+            except ImportHistory.DoesNotExist:
+                yield 'data: {"error":"not_found"}\n\n'
+                break
+            time.sleep(2)
+            elapsed += 2
+        yield "event: done\ndata: {}\n\n"
+
+    response = StreamingHttpResponse(event_stream(), content_type='text/event-stream')
+    response['Cache-Control'] = 'no-cache'
+    response['X-Accel-Buffering'] = 'no'
+    return response
+
 
 @rate_limit('import_stats', limit=300)
 @require_http_methods(['GET'])
@@ -425,62 +497,14 @@ def search(request):
             elif lieu_deces_type == 'pays':
                 results = results.filter(lieu_deces=lieu_deces_id)
 
-        # Tri des résultats
         valid_fields = {
             'nom': 'nom',
             'prenoms': 'prenoms',
             'date_naissance': 'date_naissance',
             'date_deces': 'date_deces',
-            'lieu_deces': 'lieu_deces_nom_resolue',
-            'lieu_naissance': 'lieu_naissance_nom_resolue'
+            'lieu_deces': 'lieu_deces_libelle',
+            'lieu_naissance': 'lieu_naissance_libelle',
         }
-
-        # Ajouter les annotations pour le tri sur les noms de lieux
-        results = results.annotate(
-            lieu_naissance_nom_resolue=Case(
-                When(lieu_naissance__startswith='99',
-                     then=Concat(
-                         F('lieu_naissance_nom'),
-                         Value(', '),
-                         Subquery(
-                             Pays.objects.filter(cog=OuterRef('lieu_naissance'))
-                             .values('libcog')[:1]
-                         ),
-                         output_field=CharField()
-                     )),
-                default=Concat(
-                    Subquery(
-                        Commune.objects.filter(com=OuterRef('lieu_naissance'))
-                        .values('libelle')[:1]
-                    ),
-                    Value(', '),
-                    Subquery(
-                        Commune.objects.filter(com=OuterRef('lieu_naissance'))
-                        .values('dep__libelle')[:1]
-                    ),
-                    output_field=CharField()
-                )
-            ),
-            lieu_deces_nom_resolue=Case(
-                When(lieu_deces__startswith='99',
-                     then=Subquery(
-                         Pays.objects.filter(cog=OuterRef('lieu_deces'))
-                         .values('libcog')[:1]
-                     )),
-                default=Concat(
-                    Subquery(
-                        Commune.objects.filter(com=OuterRef('lieu_deces'))
-                        .values('libelle')[:1]
-                    ),
-                    Value(', '),
-                    Subquery(
-                        Commune.objects.filter(com=OuterRef('lieu_deces'))
-                        .values('dep__libelle')[:1]
-                    ),
-                    output_field=CharField()
-                )
-            )
-        )
 
         if order_by in valid_fields:
             order_field = valid_fields[order_by]
@@ -488,8 +512,54 @@ def search(request):
                 order_field = f'-{order_field}'
             results = results.order_by(order_field)
 
-        paginator = Paginator(results, 20)
-        page_obj = paginator.get_page(page)
+        # Use Meilisearch for flexible (full-text) name search
+        use_meilisearch = (nom_flexible == 'on' or prenoms_flexible == 'on') and (nom or prenoms)
+        if use_meilisearch:
+            try:
+                from .search_index import search as meili_search
+                total, pks = meili_search(
+                    nom=nom.upper() if nom else None,
+                    prenoms=prenoms.upper() if prenoms else None,
+                    nom_flexible=(nom_flexible == 'on'),
+                    prenoms_flexible=(prenoms_flexible == 'on'),
+                    sexe=sexe or None,
+                    date_naissance_debut=date_naissance_debut or None,
+                    date_naissance_fin=date_naissance_fin or None,
+                    date_deces_debut=date_deces_debut or None,
+                    date_deces_fin=date_deces_fin or None,
+                    lieu_naissance_id=lieu_naissance_id or None,
+                    lieu_naissance_type=lieu_naissance_type or None,
+                    lieu_deces_id=lieu_deces_id or None,
+                    lieu_deces_type=lieu_deces_type or None,
+                    order_by=order_by,
+                    order_dir=order_dir,
+                    page=int(page),
+                    page_size=20,
+                )
+                if pks:
+                    conditions = [
+                        Q(date_deces=date_type.fromisoformat(pd), lieu_deces=pl, acte_deces=pa)
+                        for pd, pl, pa in pks
+                    ]
+                    combined_q = reduce(lambda a, b: a | b, conditions)
+                    records_map = {
+                        (str(d.date_deces), d.lieu_deces, d.acte_deces): d
+                        for d in Deces.objects.filter(combined_q)
+                    }
+                    object_list = [records_map.get(pk) for pk in pks]
+                    object_list = [r for r in object_list if r is not None]
+                else:
+                    object_list = []
+                paginator = MeiliPaginator(total, 20)
+                page_obj = MeiliPage(object_list, int(page), paginator)
+            except Exception as e:
+                import logging
+                logging.getLogger(__name__).warning(f"Meilisearch unavailable, falling back to DB: {e}")
+                use_meilisearch = False
+
+        if not use_meilisearch:
+            paginator = Paginator(results, 20)
+            page_obj = paginator.get_page(page)
 
     def get_lieu_text(lieu_id, lieu_type):
         if not lieu_id or not lieu_type:
@@ -550,6 +620,223 @@ def search(request):
     response['Pragma'] = 'no-cache'
     response['Expires'] = '0'
     return response
+
+EXPORT_LIMIT = 50_000
+EXPORT_SEXE = {'1': 'M', '2': 'F'}
+
+
+def _build_db_queryset(get_params):
+    """Build filtered Deces queryset from GET params (no pagination, no Meilisearch)."""
+    nom = get_params.get('nom', '').strip()
+    nom_flexible = get_params.get('nom_flexible')
+    prenoms = get_params.get('prenoms', '').strip()
+    prenoms_flexible = get_params.get('prenoms_flexible')
+    sexe = get_params.get('sexe', '')
+    date_naissance_debut = get_params.get('date_naissance_debut', '')
+    date_naissance_fin = get_params.get('date_naissance_fin', '')
+    date_deces_debut = get_params.get('date_deces_debut', '')
+    date_deces_fin = get_params.get('date_deces_fin', '')
+    lieu_naissance_id = get_params.get('lieu_naissance', '')
+    lieu_naissance_type = get_params.get('lieu_naissance_type', '')
+    lieu_deces_id = get_params.get('lieu_deces', '')
+    lieu_deces_type = get_params.get('lieu_deces_type', '')
+
+    qs = Deces.objects.all()
+
+    if nom:
+        qs = qs.filter(nom__contains=nom.upper()) if nom_flexible == 'on' else qs.filter(nom=nom.upper())
+    if prenoms:
+        qs = qs.filter(prenoms__contains=prenoms.upper()) if prenoms_flexible == 'on' else qs.filter(prenoms=prenoms.upper())
+    if sexe:
+        qs = qs.filter(sexe=sexe)
+    if date_naissance_debut:
+        qs = qs.filter(date_naissance__gte=date_naissance_debut)
+    if date_naissance_fin:
+        qs = qs.filter(date_naissance__lte=date_naissance_fin)
+    if date_deces_debut:
+        qs = qs.filter(date_deces__gte=date_deces_debut)
+    if date_deces_fin:
+        qs = qs.filter(date_deces__lte=date_deces_fin)
+
+    if lieu_naissance_id and lieu_naissance_type:
+        if lieu_naissance_type == 'commune':
+            qs = qs.filter(lieu_naissance=lieu_naissance_id)
+        elif lieu_naissance_type == 'departement':
+            qs = qs.filter(lieu_naissance__in=Commune.objects.filter(dep=lieu_naissance_id).values_list('com', flat=True))
+        elif lieu_naissance_type == 'region':
+            qs = qs.filter(lieu_naissance__in=Commune.objects.filter(reg=lieu_naissance_id).values_list('com', flat=True))
+        elif lieu_naissance_type == 'pays':
+            qs = qs.filter(lieu_naissance=lieu_naissance_id)
+
+    if lieu_deces_id and lieu_deces_type:
+        if lieu_deces_type == 'commune':
+            qs = qs.filter(lieu_deces=lieu_deces_id)
+        elif lieu_deces_type == 'departement':
+            qs = qs.filter(lieu_deces__in=Commune.objects.filter(dep=lieu_deces_id).values_list('com', flat=True))
+        elif lieu_deces_type == 'region':
+            qs = qs.filter(lieu_deces__in=Commune.objects.filter(reg=lieu_deces_id).values_list('com', flat=True))
+        elif lieu_deces_type == 'pays':
+            qs = qs.filter(lieu_deces=lieu_deces_id)
+
+    return qs
+
+
+@login_required
+@require_http_methods(['POST'])
+def nlp_search(request):
+    from urllib.parse import urlencode
+    query = request.POST.get('query', '').strip()
+    if not query:
+        return redirect('deces:search')
+    try:
+        from .nlp_search import build_search_params
+        params, _ = build_search_params(query)
+        return redirect(f"{reverse('deces:search')}?{urlencode(params)}")
+    except Exception as e:
+        logger.warning(f"NLP search failed: {e}")
+        messages.error(request, f"Analyse impossible : {e}")
+        return redirect('deces:search')
+
+
+def dashboard(request):
+    if not request.user.is_staff:
+        return redirect('deces:index')
+    recent_imports = ImportHistory.objects.filter(
+        status='completed'
+    ).order_by('-started_at')[:5]
+    total_imports = ImportHistory.objects.filter(status='completed').count()
+    last_import = ImportHistory.objects.filter(status='completed').order_by('-completed_at').first()
+    return render(request, 'deces/dashboard.html', {
+        'recent_imports': recent_imports,
+        'total_imports': total_imports,
+        'last_import': last_import,
+    })
+
+
+@login_required
+@require_http_methods(['GET'])
+def dashboard_stats(request):
+    if not request.user.is_staff:
+        return JsonResponse({'error': 'forbidden'}, status=403)
+    from django.db import connection
+
+    cache_key = 'dashboard_stats_v1'
+    data = cache.get(cache_key)
+    if data is None:
+        with connection.cursor() as cursor:
+            cursor.execute("""
+                SELECT YEAR(date_deces) AS yr, COUNT(*) AS cnt
+                FROM deces_deces
+                WHERE date_deces >= '1970-01-01'
+                GROUP BY YEAR(date_deces)
+                ORDER BY yr
+            """)
+            rows = cursor.fetchall()
+
+        total = sum(r[1] for r in rows)
+        data = {
+            'total_records': total,
+            'years': [r[0] for r in rows if r[0]],
+            'counts': [r[1] for r in rows if r[0]],
+        }
+        cache.set(cache_key, data, 3600)
+
+    return JsonResponse(data)
+
+
+def export_search(request):
+    from django.http import StreamingHttpResponse
+    import csv
+
+    get_params = request.GET
+    has_criteria = any(get_params.get(k) for k in [
+        'nom', 'prenoms', 'sexe',
+        'date_naissance_debut', 'date_naissance_fin',
+        'date_deces_debut', 'date_deces_fin',
+        'lieu_naissance', 'lieu_deces',
+    ])
+    if not has_criteria:
+        from django.http import HttpResponseBadRequest
+        return HttpResponseBadRequest("Au moins un critère de recherche est requis.")
+
+    qs = _build_db_queryset(get_params).order_by('nom', 'prenoms')[:EXPORT_LIMIT]
+
+    def generate_rows():
+        header = ['nom', 'prenoms', 'sexe', 'date_naissance', 'lieu_naissance', 'date_deces', 'lieu_deces']
+        yield header
+        for d in qs.iterator(chunk_size=2000):
+            yield [
+                d.nom or '',
+                d.prenoms or '',
+                EXPORT_SEXE.get(d.sexe, d.sexe or ''),
+                d.date_naissance.strftime('%d/%m/%Y') if d.date_naissance else '',
+                d.lieu_naissance_libelle or d.lieu_naissance or '',
+                d.date_deces.strftime('%d/%m/%Y') if d.date_deces else '',
+                d.lieu_deces_libelle or d.lieu_deces or '',
+            ]
+
+    class CsvWriter:
+        def __init__(self):
+            import io
+            self.buf = io.StringIO()
+            self.writer = csv.writer(self.buf, delimiter=';')
+
+        def write_row(self, row):
+            self.writer.writerow(row)
+            data = self.buf.getvalue()
+            self.buf.truncate(0)
+            self.buf.seek(0)
+            return data
+
+    writer = CsvWriter()
+    response = StreamingHttpResponse(
+        (writer.write_row(row) for row in generate_rows()),
+        content_type='text/csv; charset=utf-8-sig',
+    )
+    response['Content-Disposition'] = 'attachment; filename="deces_export.csv"'
+    return response
+
+
+@login_required
+@require_http_methods(['POST'])
+def bulk_error_action(request):
+    if not request.user.is_superuser:
+        return JsonResponse({'error': 'forbidden'}, status=403)
+
+    action = request.POST.get('action')
+    ids = request.POST.getlist('error_ids')
+    if not ids:
+        messages.warning(request, 'Aucune erreur sélectionnée.')
+        return redirect(request.POST.get('next', 'deces:import-error-list'))
+
+    errors = DecesImportError.objects.filter(pk__in=ids, resolved=False)
+
+    if action == 'resolve':
+        from django.utils import timezone
+        count = errors.update(resolved=True, resolution_date=timezone.now())
+        messages.success(request, f'{count} erreur(s) marquée(s) comme résolue(s).')
+
+    elif action == 'retry':
+        ok = ko = 0
+        for error in errors:
+            success, _ = error.retry_import()
+            if success:
+                ok += 1
+            else:
+                ko += 1
+        if ok:
+            messages.success(request, f'{ok} erreur(s) réimportée(s) avec succès.')
+        if ko:
+            messages.warning(request, f'{ko} erreur(s) non réimportée(s) (données incomplètes).')
+    else:
+        messages.error(request, 'Action inconnue.')
+
+    from django.utils.http import url_has_allowed_host_and_scheme
+    next_url = request.POST.get('next', '')
+    if next_url and url_has_allowed_host_and_scheme(next_url, allowed_hosts={request.get_host()}):
+        return redirect(next_url)
+    return redirect('deces:import-error-list')
+
 
 class ImportErrorListView(LoginRequiredMixin, ListView):
     def dispatch(self, request, *args, **kwargs):

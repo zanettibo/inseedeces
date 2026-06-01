@@ -200,8 +200,33 @@ LANGUAGE_CODE = 'en-us'
 TIME_ZONE = 'Europe/Paris'
 
 # Celery Configuration
+GEMINI_API_KEY = os.getenv('GEMINI_API_KEY', '')
+
+COG_URLS = {
+    'regions':      os.getenv('COG_URL_REGIONS',      'https://www.insee.fr/fr/statistiques/fichier/6800675/v_region_2024.csv'),
+    'departements': os.getenv('COG_URL_DEPARTEMENTS',  'https://www.insee.fr/fr/statistiques/fichier/6800675/v_departement_2024.csv'),
+    'communes':     os.getenv('COG_URL_COMMUNES',      'https://www.insee.fr/fr/statistiques/fichier/6800675/v_commune_2024.csv'),
+    'pays':         os.getenv('COG_URL_PAYS',          'https://www.insee.fr/fr/statistiques/fichier/2028273/pays2024.csv'),
+}
+
+MEILISEARCH_URL = os.getenv('MEILISEARCH_URL', 'http://meilisearch:7700')
+MEILISEARCH_API_KEY = os.getenv('MEILISEARCH_API_KEY', 'masterKey_inseedeces_secret')
+
+SENTRY_DSN = os.getenv('SENTRY_DSN', '')
+if SENTRY_DSN:
+    import sentry_sdk
+    sentry_sdk.init(
+        dsn=SENTRY_DSN,
+        environment=os.getenv('SENTRY_ENVIRONMENT', 'production' if not DEBUG else 'development'),
+        traces_sample_rate=float(os.getenv('SENTRY_TRACES_SAMPLE_RATE', '0.1')),
+        profile_session_sample_rate=float(os.getenv('SENTRY_PROFILE_SAMPLE_RATE', '0.1')),
+        profile_lifecycle='trace',
+        send_default_pii=False,
+        enable_logs=True,
+    )
+
 CELERY_BROKER_URL = os.getenv('CELERY_BROKER_URL', 'redis://localhost:6379/0')
-CELERY_RESULT_BACKEND = 'django-db'
+CELERY_RESULT_BACKEND = os.getenv('CELERY_RESULT_BACKEND', 'redis://redis:6379/2')
 CELERY_ACCEPT_CONTENT = ['json']
 CELERY_TASK_SERIALIZER = 'json'
 CELERY_RESULT_SERIALIZER = 'json'

@@ -1,60 +1,69 @@
 {% extends "deces/base.html" %}
 
+{% block title %}Correction #{{ object.id }} — INSEE Décès{% endblock %}
+
 {% block content %}
-<div class="container mt-4">
-    <h1>Correction de l'erreur d'import #{{ object.id }}</h1>
-
-    <div class="card mb-4">
-        <div class="card-header">
-            <h5 class="card-title mb-0">Données brutes</h5>
-        </div>
-        <div class="card-body">
-            <pre class="mb-0"><code>{{ raw_data|pprint }}</code></pre>
-        </div>
-    </div>
-
-    <div class="card mb-4">
-        <div class="card-header">
-            <h5 class="card-title mb-0">Formulaire de correction</h5>
-        </div>
-        <div class="card-body">
-            <form method="post">
-                {% csrf_token %}
-                
-                {% for field in form %}
-                <div class="mb-3">
-                    <label for="{{ field.id_for_label }}" class="form-label">{{ field.label }}</label>
-                    {{ field }}
-                    {% if field.help_text %}
-                    <div class="form-text">{{ field.help_text }}</div>
-                    {% endif %}
-                    {% if field.errors %}
-                    <div class="invalid-feedback d-block">
-                        {% for error in field.errors %}
-                        {{ error }}
-                        {% endfor %}
-                    </div>
-                    {% endif %}
-                </div>
-                {% endfor %}
-
-                <div class="mt-4">
-                    <button type="submit" class="btn btn-primary">Enregistrer les modifications</button>
-                    <a href="{% url 'deces:import-error-detail' object.pk %}" class="btn btn-secondary">Annuler</a>
-                </div>
-            </form>
-        </div>
-    </div>
+<div class="page-hd">
+  <div class="d-flex align-items-center gap-3 mb-1">
+    <a href="{% url 'deces:import-error-detail' object.pk %}" style="color:var(--t4);font-size:13px;text-decoration:none;">
+      <i class="bi bi-arrow-left me-1"></i>Détails de l'erreur
+    </a>
+  </div>
+  <div class="page-title">Correction <span style="color:var(--t4);">#{{ object.id }}</span></div>
+  <div class="page-sub">{{ object.import_history.csv_filename }}</div>
 </div>
+
+<div class="page-body">
+  <div class="row g-3">
+    <div class="col-lg-5">
+      <div class="card mb-3">
+        <div class="card-header"><i class="bi bi-code-slash me-2"></i>Données brutes</div>
+        <div class="card-body" style="padding:14px;">
+          <pre style="margin:0;max-height:260px;overflow-y:auto;"><code>{% for k, v in raw_data.items %}{{ k }}: {{ v }}
+{% endfor %}</code></pre>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-lg-7">
+      <div class="card">
+        <div class="card-header"><i class="bi bi-pencil me-2"></i>Formulaire de correction</div>
+        <div class="card-body">
+          <form method="post">
+            {% csrf_token %}
+            <div class="row g-3">
+              {% for field in form %}
+              <div class="col-md-6">
+                <label class="form-label">{{ field.label }}</label>
+                {{ field }}
+                {% if field.errors %}
+                <div style="font-size:12px;color:var(--err);margin-top:4px;">
+                  {% for error in field.errors %}{{ error }}{% endfor %}
+                </div>
+                {% endif %}
+              </div>
+              {% endfor %}
+            </div>
+            <div class="d-flex gap-2 mt-4 pt-3" style="border-top:1px solid var(--bg2);">
+              <button type="submit" class="btn btn-primary">
+                <i class="bi bi-check-circle me-1"></i>Enregistrer et réimporter
+              </button>
+              <a href="{% url 'deces:import-error-detail' object.pk %}" class="btn btn-outline-secondary">Annuler</a>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
 
 {% block extra_js %}
 <script>
-    // Ajouter la classe form-control à tous les champs du formulaire
-    document.addEventListener('DOMContentLoaded', function() {
-        document.querySelectorAll('form input, form select, form textarea').forEach(function(element) {
-            element.classList.add('form-control');
-        });
-    });
+document.addEventListener('DOMContentLoaded', function() {
+  document.querySelectorAll('form input:not([type=hidden]):not([type=submit]), form select, form textarea').forEach(el => {
+    el.classList.add('form-control');
+  });
+});
 </script>
-{% endblock %}
 {% endblock %}

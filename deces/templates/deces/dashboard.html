@@ -1,0 +1,123 @@
+{% extends 'deces/base.html' %}
+
+{% block title %}Tableau de bord — INSEE Décès{% endblock %}
+
+{% block extra_css %}
+<style>
+  .chart-wrap { position: relative; height: 300px; }
+  .recent-table td, .recent-table th { padding: 9px 14px; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page-hd">
+  <div class="page-title">Tableau de bord</div>
+  <div class="page-sub">Statistiques sur les décès enregistrés</div>
+</div>
+
+<div class="page-body">
+  <div class="row g-3 mb-4">
+    <div class="col-md-4">
+      <div class="stat-card">
+        <div class="stat-ic indigo"><i class="bi bi-people"></i></div>
+        <div class="stat-val" id="stat-total">—</div>
+        <div class="stat-lbl"><i class="bi bi-circle-fill" style="font-size:6px;color:var(--accent);"></i> Décès enregistrés</div>
+      </div>
+    </div>
+    <div class="col-md-4">
+      <div class="stat-card">
+        <div class="stat-ic green"><i class="bi bi-check-circle"></i></div>
+        <div class="stat-val">{{ total_imports }}</div>
+        <div class="stat-lbl"><i class="bi bi-circle-fill" style="font-size:6px;color:var(--ok);"></i> Imports terminés</div>
+      </div>
+    </div>
+    <div class="col-md-4">
+      <div class="stat-card">
+        <div class="stat-ic amber"><i class="bi bi-calendar-check"></i></div>
+        <div class="stat-val" style="font-size:18px;padding-top:4px;">
+          {% if last_import %}{{ last_import.completed_at|date:"d/m/Y" }}{% else %}—{% endif %}
+        </div>
+        <div class="stat-lbl"><i class="bi bi-circle-fill" style="font-size:6px;color:var(--warn);"></i> Dernier import
+          {% if last_import %}<span style="color:var(--t4);font-family:var(--fm);font-size:10.5px;margin-left:4px;">{{ last_import.csv_filename|truncatechars:20 }}</span>{% endif %}
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card mb-4">
+    <div class="card-header d-flex align-items-center justify-content-between">
+      <span><i class="bi bi-bar-chart me-2"></i>Décès par année</span>
+      <span style="font-size:11px;color:var(--t4);font-family:var(--fm);" id="chart-label">chargement…</span>
+    </div>
+    <div class="card-body">
+      <div class="chart-wrap"><canvas id="chart-years"></canvas></div>
+    </div>
+  </div>
+
+  {% if recent_imports %}
+  <div class="card">
+    <div class="card-header"><i class="bi bi-clock-history me-2"></i>Derniers imports</div>
+    <div class="table-responsive">
+      <table class="table recent-table">
+        <thead>
+          <tr>
+            <th>Fichier</th>
+            <th>Enregistrements</th>
+            <th>Date de fin</th>
+            <th>Erreurs</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for imp in recent_imports %}
+          <tr>
+            <td style="font-family:var(--fm);font-size:12px;color:var(--t2);">{{ imp.csv_filename }}</td>
+            <td style="font-family:var(--fm);font-size:12.5px;color:var(--t1);font-weight:600;">{{ imp.records_processed|default:0 }}</td>
+            <td style="font-size:12px;color:var(--t4);">{{ imp.completed_at|date:"d/m/Y H:i"|default:"—" }}</td>
+            <td>
+              {% with e=imp.pending_errors %}
+              <span class="badge {% if e == 0 %}bg-success{% else %}bg-danger{% endif %}">{{ e }}</span>
+              {% endwith %}
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+  {% endif %}
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script>
+fetch('{% url "deces:dashboard_stats" %}')
+  .then(r => r.json())
+  .then(data => {
+    document.getElementById('stat-total').textContent = data.total_records.toLocaleString('fr-FR');
+    document.getElementById('chart-label').textContent = data.total_records.toLocaleString('fr-FR') + ' enregistrements (1970→)';
+    new Chart(document.getElementById('chart-years'), {
+      type: 'bar',
+      data: {
+        labels: data.years,
+        datasets: [{ label: 'Décès', data: data.counts,
+          backgroundColor: 'rgba(99,102,241,0.55)', borderColor: 'rgba(99,102,241,0.9)',
+          borderWidth: 1, borderRadius: 2 }]
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: { legend: { display: false }, tooltip: {
+          backgroundColor: '#27272a', borderColor: '#3f3f46', borderWidth: 1,
+          titleColor: '#fafafa', bodyColor: '#a1a1aa',
+          callbacks: { label: c => '  ' + c.raw.toLocaleString('fr-FR') + ' décès' }
+        }},
+        scales: {
+          x: { grid: { color: 'rgba(255,255,255,.04)' }, ticks: { color: '#71717a', font: { size: 11 }, maxTicksLimit: 20 } },
+          y: { grid: { color: 'rgba(255,255,255,.04)' }, ticks: { color: '#71717a', font: { size: 11 }, callback: v => v >= 1000 ? (v/1000).toFixed(0)+'k' : v } }
+        }
+      }
+    });
+  })
+  .catch(() => { document.getElementById('chart-label').textContent = 'Erreur de chargement'; });
+</script>
+{% endblock %}

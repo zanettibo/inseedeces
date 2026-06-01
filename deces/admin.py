@@ -8,9 +8,8 @@ class ImportHistoryAdmin(admin.ModelAdmin):
     
     def pending_errors_display(self, obj):
         count = obj.pending_errors
-        if count == 0:
-            return format_html('<span style="color: green;">0</span>')
-        return format_html('<span style="color: red;">{}</span>', count)
+        color = 'green' if count == 0 else 'red'
+        return format_html('<span style="color: {};">{}</span>', color, count)
     pending_errors_display.short_description = 'Erreurs en attente'
     
     def progress_bar(self, obj):

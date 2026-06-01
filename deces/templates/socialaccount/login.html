@@ -1,27 +1,45 @@
 {% extends "deces/base.html" %}
 
+{% block title %}Connexion — INSEE Décès{% endblock %}
+
 {% block content %}
-<div class="row justify-content-center">
-    <div class="col-md-6">
-        <div class="card">
-            <div class="card-body">
-                <h2 class="card-title mb-4">Connexion avec {{ provider.name }}</h2>
-                
-                {% if process == "connect" %}
-                <p>Vous êtes sur le point de connecter votre compte à {{ provider.name }}.</p>
-                {% else %}
-                <p>Vous êtes sur le point de vous connecter avec {{ provider.name }}.</p>
-                {% endif %}
-                
-                <form method="post">
-                    {% csrf_token %}
-                    <div class="d-grid gap-2">
-                        <button type="submit" class="btn btn-primary">Continuer</button>
-                        <a href="{% url 'account_login' %}" class="btn btn-outline-secondary">Annuler</a>
-                    </div>
-                </form>
-            </div>
+<div style="display:flex;align-items:center;justify-content:center;min-height:70vh;">
+  <div style="width:100%;max-width:400px;">
+    <div class="card">
+      <div class="card-body" style="padding:32px;">
+        <div style="text-align:center;margin-bottom:28px;">
+          <div style="width:48px;height:48px;background:var(--accent-dim);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:22px;color:#a5b4fc;margin:0 auto 16px;">
+            <i class="bi bi-person-lock"></i>
+          </div>
+          <h2 style="font-size:18px;font-weight:700;margin:0 0 6px;">
+            {% if process == "connect" %}
+              Connexion du compte
+            {% else %}
+              Connexion avec {{ provider.name }}
+            {% endif %}
+          </h2>
+          <p style="font-size:13px;color:var(--t4);margin:0;">
+            {% if process == "connect" %}
+              Vous allez connecter votre compte à {{ provider.name }}.
+            {% else %}
+              Vous allez vous authentifier via {{ provider.name }}.
+            {% endif %}
+          </p>
         </div>
+
+        <form method="post">
+          {% csrf_token %}
+          <div class="d-grid gap-2">
+            <button type="submit" class="btn btn-primary" style="padding:10px;">
+              <i class="bi bi-google me-2"></i>Continuer avec {{ provider.name }}
+            </button>
+            <a href="{% url 'account_login' %}" class="btn btn-outline-secondary" style="padding:10px;">
+              Annuler
+            </a>
+          </div>
+        </form>
+      </div>
     </div>
+  </div>
 </div>
 {% endblock %}

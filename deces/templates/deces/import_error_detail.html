@@ -1,112 +1,92 @@
 {% extends "deces/base.html" %}
 
+{% block title %}Erreur #{{ error.id }} — INSEE Décès{% endblock %}
+
 {% block content %}
-<div class="container mt-4">
-    <h1>Détails de l'erreur d'import #{{ error.id }}</h1>
+<div class="page-hd">
+  <div class="d-flex align-items-center gap-3 mb-1">
+    <a href="{% url 'deces:import-error-list' %}" style="color:var(--t4);font-size:13px;text-decoration:none;">
+      <i class="bi bi-arrow-left me-1"></i>Erreurs d'import
+    </a>
+  </div>
+  <div class="page-title">Erreur d'import <span style="color:var(--t4);">#{{ error.id }}</span></div>
+  <div class="page-sub">{{ error.import_history.csv_filename }}</div>
+</div>
 
-    {% if messages %}
-    <div class="messages">
-        {% for message in messages %}
-        <div class="alert alert-{{ message.tags }}">
-            {{ message }}
-        </div>
-        {% endfor %}
-    </div>
-    {% endif %}
-
-    <div class="row">
-        <div class="col-md-6">
-            <div class="card mb-4">
-                <div class="card-header">
-                    <h5 class="card-title mb-0">Informations sur l'erreur</h5>
-                </div>
-                <div class="card-body">
-                    <dl class="row">
-                        <dt class="col-sm-4">Import</dt>
-                        <dd class="col-sm-8">{{ error.import_history.csv_filename }}</dd>
-
-                        <dt class="col-sm-4">Message d'erreur</dt>
-                        <dd class="col-sm-8">{{ error.error_message }}</dd>
-
-                        <dt class="col-sm-4">Date de création</dt>
-                        <dd class="col-sm-8">{{ error.created_at|date:"d/m/Y H:i" }}</dd>
-
-                        <dt class="col-sm-4">Statut</dt>
-                        <dd class="col-sm-8">
-                            {% if error.resolved %}
-                            <span class="badge bg-success">Résolu</span>
-                            {% if error.resolution_date %}
-                            <small class="text-muted">({{ error.resolution_date|date:"d/m/Y H:i" }})</small>
-                            {% endif %}
-                            {% else %}
-                            <span class="badge bg-warning">Non résolu</span>
-                            {% endif %}
-                        </dd>
-                    </dl>
-                </div>
-            </div>
-        </div>
-
-        <div class="col-md-6">
-            <div class="card mb-4">
-                <div class="card-header">
-                    <h5 class="card-title mb-0">Données brutes</h5>
-                </div>
-                <div class="card-body">
-                    <pre class="mb-0"><code>{{ error.raw_data|pprint }}</code></pre>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <div class="card mb-4">
-        <div class="card-header">
-            <h5 class="card-title mb-0">Données actuelles</h5>
-        </div>
+<div class="page-body">
+  <div class="row g-3 mb-3">
+    <div class="col-md-6">
+      <div class="card h-100">
+        <div class="card-header"><i class="bi bi-info-circle me-2"></i>Informations sur l'erreur</div>
         <div class="card-body">
-            <dl class="row">
-                <dt class="col-sm-3">Nom</dt>
-                <dd class="col-sm-9">{{ error.nom|default:"Non renseigné" }}</dd>
+          <dl class="row mb-0" style="row-gap:10px;">
+            <dt class="col-sm-4">Import</dt>
+            <dd class="col-sm-8">{{ error.import_history.csv_filename }}</dd>
 
-                <dt class="col-sm-3">Prénoms</dt>
-                <dd class="col-sm-9">{{ error.prenoms|default:"Non renseigné" }}</dd>
+            <dt class="col-sm-4">Message</dt>
+            <dd class="col-sm-8" style="color:var(--err);font-family:var(--fm);font-size:12.5px;">{{ error.error_message }}</dd>
 
-                <dt class="col-sm-3">Sexe</dt>
-                <dd class="col-sm-9">{{ error.sexe|default:"Non renseigné" }}</dd>
+            <dt class="col-sm-4">Date</dt>
+            <dd class="col-sm-8">{{ error.created_at|date:"d/m/Y H:i" }}</dd>
 
-                <dt class="col-sm-3">Date de naissance</dt>
-                <dd class="col-sm-9">{{ error.date_naissance|date:"d/m/Y"|default:"Non renseigné" }}</dd>
-
-                <dt class="col-sm-3">Lieu de naissance</dt>
-                <dd class="col-sm-9">{{ error.lieu_naissance|default:"Non renseigné" }}</dd>
-
-                <dt class="col-sm-3">Nom du lieu de naissance</dt>
-                <dd class="col-sm-9">{{ error.lieu_naissance_nom|default:"Non renseigné" }}</dd>
-
-                <dt class="col-sm-3">Date de décès</dt>
-                <dd class="col-sm-9">{{ error.date_deces|date:"d/m/Y"|default:"Non renseigné" }}</dd>
-
-                <dt class="col-sm-3">Lieu de décès</dt>
-                <dd class="col-sm-9">{{ error.lieu_deces|default:"Non renseigné" }}</dd>
-
-                <dt class="col-sm-3">Acte de décès</dt>
-                <dd class="col-sm-9">{{ error.acte_deces|default:"Non renseigné" }}</dd>
-            </dl>
+            <dt class="col-sm-4">Statut</dt>
+            <dd class="col-sm-8">
+              {% if error.resolved %}
+              <span class="badge bg-success">Résolu</span>
+              {% if error.resolution_date %}
+              <span style="font-size:11.5px;color:var(--t4);margin-left:6px;">{{ error.resolution_date|date:"d/m/Y H:i" }}</span>
+              {% endif %}
+              {% else %}
+              <span class="badge bg-warning">En attente</span>
+              {% endif %}
+            </dd>
+          </dl>
         </div>
+      </div>
     </div>
 
-    <div class="mb-4">
-        {% if not error.resolved %}
-        <a href="{% url 'deces:import-error-update' error.pk %}" class="btn btn-primary">
-            Modifier les données
-        </a>
-        <a href="{% url 'deces:retry-import-error' error.pk %}" class="btn btn-success">
-            Réessayer l'import
-        </a>
-        {% endif %}
-        <a href="{% url 'deces:import-error-list' %}" class="btn btn-secondary">
-            Retour à la liste
-        </a>
+    <div class="col-md-6">
+      <div class="card h-100">
+        <div class="card-header"><i class="bi bi-code-slash me-2"></i>Données brutes</div>
+        <div class="card-body" style="padding:14px;">
+          <pre style="margin:0;max-height:220px;overflow-y:auto;"><code>{% for k, v in error.raw_data.items %}{{ k }}: {{ v }}
+{% endfor %}</code></pre>
+        </div>
+      </div>
     </div>
+  </div>
+
+  <div class="card mb-3">
+    <div class="card-header"><i class="bi bi-person me-2"></i>Données parsées</div>
+    <div class="card-body">
+      <div class="row" style="row-gap:12px;">
+        {% with fields=error %}
+        <div class="col-md-3"><div style="font-size:11px;color:var(--t4);text-transform:uppercase;letter-spacing:.04em;margin-bottom:3px;">Nom</div><div style="font-family:var(--fm);font-size:13px;color:var(--t1);">{{ error.nom|default:"—" }}</div></div>
+        <div class="col-md-3"><div style="font-size:11px;color:var(--t4);text-transform:uppercase;letter-spacing:.04em;margin-bottom:3px;">Prénoms</div><div style="font-family:var(--fm);font-size:13px;color:var(--t1);">{{ error.prenoms|default:"—" }}</div></div>
+        <div class="col-md-3"><div style="font-size:11px;color:var(--t4);text-transform:uppercase;letter-spacing:.04em;margin-bottom:3px;">Sexe</div><div style="font-family:var(--fm);font-size:13px;color:var(--t1);">{% if error.sexe == '1' %}Masculin{% elif error.sexe == '2' %}Féminin{% else %}—{% endif %}</div></div>
+        <div class="col-md-3"><div style="font-size:11px;color:var(--t4);text-transform:uppercase;letter-spacing:.04em;margin-bottom:3px;">Date naissance</div><div style="font-family:var(--fm);font-size:13px;color:var(--t1);">{{ error.date_naissance|date:"d/m/Y"|default:"—" }}</div></div>
+        <div class="col-md-3"><div style="font-size:11px;color:var(--t4);text-transform:uppercase;letter-spacing:.04em;margin-bottom:3px;">Lieu naissance</div><div style="font-family:var(--fm);font-size:13px;color:var(--t1);">{{ error.lieu_naissance|default:"—" }}</div></div>
+        <div class="col-md-3"><div style="font-size:11px;color:var(--t4);text-transform:uppercase;letter-spacing:.04em;margin-bottom:3px;">Nom lieu naiss.</div><div style="font-family:var(--fm);font-size:13px;color:var(--t1);">{{ error.lieu_naissance_nom|default:"—" }}</div></div>
+        <div class="col-md-3"><div style="font-size:11px;color:var(--t4);text-transform:uppercase;letter-spacing:.04em;margin-bottom:3px;">Date décès</div><div style="font-family:var(--fm);font-size:13px;color:var(--t1);">{{ error.date_deces|date:"d/m/Y"|default:"—" }}</div></div>
+        <div class="col-md-3"><div style="font-size:11px;color:var(--t4);text-transform:uppercase;letter-spacing:.04em;margin-bottom:3px;">Lieu décès</div><div style="font-family:var(--fm);font-size:13px;color:var(--t1);">{{ error.lieu_deces|default:"—" }}</div></div>
+        <div class="col-md-3"><div style="font-size:11px;color:var(--t4);text-transform:uppercase;letter-spacing:.04em;margin-bottom:3px;">Acte décès</div><div style="font-family:var(--fm);font-size:13px;color:var(--t1);">{{ error.acte_deces|default:"—" }}</div></div>
+        {% endwith %}
+      </div>
+    </div>
+  </div>
+
+  <div class="d-flex gap-2">
+    {% if not error.resolved %}
+    <a href="{% url 'deces:import-error-update' error.pk %}" class="btn btn-primary">
+      <i class="bi bi-pencil me-1"></i>Corriger
+    </a>
+    <a href="{% url 'deces:retry-import-error' error.pk %}" class="btn btn-outline-success">
+      <i class="bi bi-arrow-clockwise me-1"></i>Réessayer
+    </a>
+    {% endif %}
+    <a href="{% url 'deces:import-error-list' %}" class="btn btn-outline-secondary">
+      <i class="bi bi-arrow-left me-1"></i>Retour à la liste
+    </a>
+  </div>
 </div>
 {% endblock %}
