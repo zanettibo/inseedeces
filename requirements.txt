@@ -20,5 +20,5 @@ google-genai>=1.0.0
 # Authentication dependencies
 django-allauth>=65.3.0
 PyJWT>=2.8.0
-cryptography>=42.0.5
+cryptography>=46.0.5
 urllib3>=2.5.0 # not directly required, pinned by Snyk to avoid a vulnerability
