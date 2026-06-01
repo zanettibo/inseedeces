@@ -299,8 +299,10 @@ def process_insee_file(self, zip_url, zip_filename):
 
                     import_history.total_records = records
                     import_history.records_processed = records_processed
-                    import_history.status = 'completed'
-                    import_history.save()
+                    import_history.update_status('completed')
+
+                    from django.core.cache import cache
+                    cache.delete('dashboard_stats_v1')
 
                     if records_processed < records * 0.9:
                         raise Exception(f'Import incomplet : seulement {records_processed}/{records} enregistrements traités')

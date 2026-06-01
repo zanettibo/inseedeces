@@ -72,10 +72,10 @@ class Deces(models.Model):
             models.Index(fields=['date_naissance']),
             models.Index(fields=['lieu_naissance']),
             models.Index(fields=['lieu_naissance_nom']),
-            models.Index(fields=['lieu_naissance_libelle']),
+            models.Index(fields=['lieu_naissance_libelle'], name='deces_deces_lieu_na_lib_idx'),
             models.Index(fields=['date_deces']),
             models.Index(fields=['lieu_deces']),
-            models.Index(fields=['lieu_deces_libelle'])
+            models.Index(fields=['lieu_deces_libelle'], name='deces_deces_lieu_de_lib_idx')
         ]
 
     def __str__(self):

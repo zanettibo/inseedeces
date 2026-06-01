@@ -677,6 +677,53 @@ def _build_db_queryset(get_params):
     return qs
 
 
+@login_required
+def dashboard(request):
+    if not request.user.is_staff:
+        return redirect('deces:index')
+    recent_imports = ImportHistory.objects.filter(
+        status='completed'
+    ).order_by('-started_at')[:5]
+    total_imports = ImportHistory.objects.filter(status='completed').count()
+    last_import = ImportHistory.objects.filter(status='completed').order_by('-completed_at').first()
+    return render(request, 'deces/dashboard.html', {
+        'recent_imports': recent_imports,
+        'total_imports': total_imports,
+        'last_import': last_import,
+    })
+
+
+@login_required
+@require_http_methods(['GET'])
+def dashboard_stats(request):
+    if not request.user.is_staff:
+        return JsonResponse({'error': 'forbidden'}, status=403)
+    from django.db import connection
+
+    cache_key = 'dashboard_stats_v1'
+    data = cache.get(cache_key)
+    if data is None:
+        with connection.cursor() as cursor:
+            cursor.execute("""
+                SELECT YEAR(date_deces) AS yr, COUNT(*) AS cnt
+                FROM deces_deces
+                WHERE date_deces >= '1970-01-01'
+                GROUP BY YEAR(date_deces)
+                ORDER BY yr
+            """)
+            rows = cursor.fetchall()
+
+        total = sum(r[1] for r in rows)
+        data = {
+            'total_records': total,
+            'years': [r[0] for r in rows if r[0]],
+            'counts': [r[1] for r in rows if r[0]],
+        }
+        cache.set(cache_key, data, 3600)
+
+    return JsonResponse(data)
+
+
 def export_search(request):
     from django.http import StreamingHttpResponse
     import csv

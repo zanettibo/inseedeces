@@ -1,0 +1,139 @@
+{% extends 'deces/base.html' %}
+
+{% block title %}Tableau de bord — INSEE Décès{% endblock %}
+
+{% block extra_css %}
+<style>
+.stat-card { border-left: 4px solid; }
+.stat-card.blue  { border-color: #0d6efd; }
+.stat-card.green { border-color: #198754; }
+.stat-card.orange{ border-color: #fd7e14; }
+.stat-value { font-size: 2rem; font-weight: 700; line-height: 1; }
+.stat-label { font-size: 0.85rem; color: #6c757d; margin-top: 4px; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2 class="mb-0">Tableau de bord</h2>
+    <small class="text-muted">Statistiques sur les décès enregistrés</small>
+</div>
+
+<!-- Stat cards (valeurs chargées en JS) -->
+<div class="row g-3 mb-4">
+    <div class="col-md-4">
+        <div class="card stat-card blue h-100">
+            <div class="card-body">
+                <div class="stat-value" id="stat-total">—</div>
+                <div class="stat-label"><i class="bi bi-people"></i> Décès enregistrés</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card stat-card green h-100">
+            <div class="card-body">
+                <div class="stat-value">{{ total_imports }}</div>
+                <div class="stat-label"><i class="bi bi-check-circle"></i> Imports terminés</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card stat-card orange h-100">
+            <div class="card-body">
+                <div class="stat-value">
+                    {% if last_import %}
+                        {{ last_import.completed_at|date:"d/m/Y" }}
+                    {% else %}
+                        —
+                    {% endif %}
+                </div>
+                <div class="stat-label"><i class="bi bi-calendar-check"></i> Dernier import</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Graphique décès par année -->
+<div class="card mb-4">
+    <div class="card-header d-flex justify-content-between align-items-center">
+        <span><i class="bi bi-bar-chart"></i> Décès par année</span>
+        <small class="text-muted" id="chart-status">Chargement…</small>
+    </div>
+    <div class="card-body">
+        <canvas id="chart-years" style="max-height: 350px;"></canvas>
+    </div>
+</div>
+
+<!-- Derniers imports -->
+{% if recent_imports %}
+<div class="card">
+    <div class="card-header"><i class="bi bi-clock-history"></i> Derniers imports</div>
+    <div class="card-body p-0">
+        <table class="table table-sm mb-0">
+            <thead class="table-light">
+                <tr>
+                    <th>Fichier</th>
+                    <th>Enregistrements</th>
+                    <th>Date</th>
+                    <th>Erreurs</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for imp in recent_imports %}
+                <tr>
+                    <td><small>{{ imp.csv_filename }}</small></td>
+                    <td>{{ imp.records_processed|default:0 }}</td>
+                    <td><small>{{ imp.completed_at|date:"d/m/Y H:i" }}</small></td>
+                    <td>
+                        {% with e=imp.pending_errors %}
+                        <span class="badge {% if e == 0 %}bg-success{% else %}bg-danger{% endif %}">{{ e }}</span>
+                        {% endwith %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script>
+fetch('{% url "deces:dashboard_stats" %}')
+    .then(r => r.json())
+    .then(data => {
+        document.getElementById('stat-total').textContent =
+            data.total_records.toLocaleString('fr-FR');
+        document.getElementById('chart-status').textContent =
+            data.total_records.toLocaleString('fr-FR') + ' enregistrements';
+
+        new Chart(document.getElementById('chart-years'), {
+            type: 'bar',
+            data: {
+                labels: data.years,
+                datasets: [{
+                    label: 'Décès',
+                    data: data.counts,
+                    backgroundColor: 'rgba(13,110,253,0.6)',
+                    borderColor: 'rgba(13,110,253,1)',
+                    borderWidth: 1,
+                }]
+            },
+            options: {
+                responsive: true,
+                plugins: { legend: { display: false } },
+                scales: {
+                    x: { title: { display: true, text: 'Année' } },
+                    y: { title: { display: true, text: 'Nombre de décès' },
+                         ticks: { callback: v => v.toLocaleString('fr-FR') } }
+                }
+            }
+        });
+    })
+    .catch(() => {
+        document.getElementById('chart-status').textContent = 'Erreur de chargement';
+    });
+</script>
+{% endblock %}
