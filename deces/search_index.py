@@ -138,13 +138,16 @@ def search(
 
     filters = []
 
+    def _fv(v):
+        return str(v).replace('\\', '\\\\').replace('"', '\\"')
+
     if nom and not nom_flexible:
-        filters.append(f'nom = "{nom}"')
+        filters.append(f'nom = "{_fv(nom)}"')
     if prenoms and not prenoms_flexible:
-        filters.append(f'prenoms = "{prenoms}"')
+        filters.append(f'prenoms = "{_fv(prenoms)}"')
 
     if sexe:
-        filters.append(f'sexe = "{sexe}"')
+        filters.append(f'sexe = "{_fv(sexe)}"')
 
     ts = _date_str_to_ts(date_naissance_debut)
     if ts is not None:
@@ -162,19 +165,19 @@ def search(
 
     if lieu_naissance_id and lieu_naissance_type:
         if lieu_naissance_type in ('commune', 'pays'):
-            filters.append(f'lieu_naissance = "{lieu_naissance_id}"')
+            filters.append(f'lieu_naissance = "{_fv(lieu_naissance_id)}"')
         elif lieu_naissance_type == 'departement':
-            filters.append(f'dep_naissance = "{lieu_naissance_id}"')
+            filters.append(f'dep_naissance = "{_fv(lieu_naissance_id)}"')
         elif lieu_naissance_type == 'region':
-            filters.append(f'reg_naissance = "{lieu_naissance_id}"')
+            filters.append(f'reg_naissance = "{_fv(lieu_naissance_id)}"')
 
     if lieu_deces_id and lieu_deces_type:
         if lieu_deces_type in ('commune', 'pays'):
-            filters.append(f'lieu_deces = "{lieu_deces_id}"')
+            filters.append(f'lieu_deces = "{_fv(lieu_deces_id)}"')
         elif lieu_deces_type == 'departement':
-            filters.append(f'dep_deces = "{lieu_deces_id}"')
+            filters.append(f'dep_deces = "{_fv(lieu_deces_id)}"')
         elif lieu_deces_type == 'region':
-            filters.append(f'reg_deces = "{lieu_deces_id}"')
+            filters.append(f'reg_deces = "{_fv(lieu_deces_id)}"')
 
     meili_sort_map = {
         'nom': 'nom',

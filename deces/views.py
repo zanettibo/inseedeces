@@ -3,11 +3,12 @@ import math
 import logging
 import requests
 from functools import reduce
-from datetime import date as date_type
+from datetime import date as date_type, datetime
 
 logger = logging.getLogger(__name__)
 
-from django.db.models import Sum, Q
+from django.db.models import Sum, Q, Case, When, F
+from django.db.models import CharField
 from django.http import JsonResponse
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
@@ -58,7 +59,8 @@ class MeiliPage:
 def rate_limit(key_prefix, limit=60):
     def decorator(view_func):
         def wrapped_view(request, *args, **kwargs):
-            client_ip = request.META.get('HTTP_X_FORWARDED_FOR', request.META.get('REMOTE_ADDR'))
+            forwarded_for = request.META.get('HTTP_X_FORWARDED_FOR')
+            client_ip = forwarded_for.split(',')[0].strip() if forwarded_for else request.META.get('REMOTE_ADDR')
             cache_key = f"{key_prefix}:{client_ip}"
             requests = cache.get(cache_key, 0)
             
@@ -370,8 +372,6 @@ class SearchView(ListView):
         lieu = self.request.GET.get('lieu')
         lieu_type = self.request.GET.get('lieu_type')
 
-        print(f"DEBUG - lieu: {lieu}, lieu_type: {lieu_type}")
-
         if lieu and lieu_type:
             try:
                 if lieu_type == 'commune':
@@ -381,7 +381,6 @@ class SearchView(ListView):
                         'text': f"{commune.libelle}, {commune.dep.libelle}, {commune.reg.libelle}, France",
                         'type': 'commune'
                     }
-                    print(f"DEBUG - Found commune: {context['selected_lieu']}")
                 elif lieu_type == 'departement':
                     dept = Departement.objects.select_related('reg').get(dep=lieu)
                     context['selected_lieu'] = {
@@ -389,7 +388,6 @@ class SearchView(ListView):
                         'text': f"{dept.libelle}, {dept.reg.libelle}, France",
                         'type': 'departement'
                     }
-                    print(f"DEBUG - Found departement: {context['selected_lieu']}")
                 elif lieu_type == 'region':
                     region = Region.objects.get(reg=lieu)
                     context['selected_lieu'] = {
@@ -397,7 +395,6 @@ class SearchView(ListView):
                         'text': f"{region.libelle}, France",
                         'type': 'region'
                     }
-                    print(f"DEBUG - Found region: {context['selected_lieu']}")
                 elif lieu_type == 'pays':
                     pays = Pays.objects.get(cog=lieu)
                     context['selected_lieu'] = {
@@ -405,11 +402,11 @@ class SearchView(ListView):
                         'text': pays.libcog,
                         'type': 'pays'
                     }
-                    print(f"DEBUG - Found pays: {context['selected_lieu']}")
             except (Commune.DoesNotExist, Departement.DoesNotExist, Region.DoesNotExist, Pays.DoesNotExist) as e:
-                print(f"DEBUG - Error: {e}")
-                pass
+                logger.debug(f"Selected lieu not found: {e}")
 
+        context['order_by'] = self.request.GET.get('order_by', 'nom')
+        context['order_dir'] = self.request.GET.get('order_dir', 'asc')
         return context
 
     def get_queryset(self):
@@ -460,11 +457,13 @@ class SearchView(ListView):
                     Q(lieu_deces=lieu)
                 )
         
-        # Trier les résultats
+        VALID_ORDER_FIELDS = {'nom', 'prenoms', 'date_naissance', 'date_deces', 'lieu_naissance', 'lieu_deces'}
         order_by = self.request.GET.get('order_by', 'nom')
         order_dir = self.request.GET.get('order_dir', 'asc')
+        if order_by not in VALID_ORDER_FIELDS:
+            order_by = 'nom'
         direction = '-' if order_dir == 'desc' else ''
-        
+
         if order_by == 'lieu_naissance':
             queryset = queryset.annotate(
                 lieu_naissance_sort=Case(
@@ -477,12 +476,6 @@ class SearchView(ListView):
             queryset = queryset.order_by(f'{direction}{order_by}')
         
         return queryset
-
-    def get_context_data(self, **kwargs):
-        context = super().get_context_data(**kwargs)
-        context['order_by'] = self.request.GET.get('order_by', 'nom')
-        context['order_dir'] = self.request.GET.get('order_dir', 'asc')
-        return context
 
 def search(request):
     # Récupérer les paramètres de recherche
@@ -820,6 +813,8 @@ def dashboard_stats(request):
     return JsonResponse(data)
 
 
+@login_required
+@require_http_methods(['GET'])
 def export_search(request):
     from django.http import StreamingHttpResponse
     import csv
