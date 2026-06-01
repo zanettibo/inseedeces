@@ -144,6 +144,7 @@ def clean_previous_import(csv_filename, md5_hash):
 @shared_task(bind=True)
 def process_insee_file(self, zip_url, zip_filename):
     logger.info(f'Démarrage du traitement pour {zip_filename}')
+    temp_zip = None
 
     try:
         logger.info('Chargement des référentiels géographiques...')
@@ -158,9 +159,12 @@ def process_insee_file(self, zip_url, zip_filename):
             md5_hash="unknown",
             status='downloading'
         )
-        zip_import_history.save()
-        response = requests.get(zip_url, stream=True)
-        response.raise_for_status()
+        try:
+            response = requests.get(zip_url, stream=True, timeout=60)
+            response.raise_for_status()
+        except Exception as e:
+            zip_import_history.update_status('failed', str(e))
+            raise
 
         with tempfile.NamedTemporaryFile(delete=False, suffix='.zip') as temp_zip:
             total_size = int(response.headers.get('content-length', 0))
@@ -312,12 +316,9 @@ def process_insee_file(self, zip_url, zip_filename):
 
     finally:
         try:
-            if os.path.exists(temp_zip.name):
-                try:
-                    os.unlink(temp_zip.name)
-                except Exception as e:
-                    logger.warning(f'Erreur lors du nettoyage du fichier temporaire {temp_zip.name}: {str(e)}')
+            if temp_zip is not None and os.path.exists(temp_zip.name):
+                os.unlink(temp_zip.name)
         except Exception as e:
-            logger.error(f'Erreur lors du nettoyage des fichiers temporaires : {str(e)}')
+            logger.warning(f'Erreur nettoyage fichier temporaire : {str(e)}')
 
     logger.info('Traitement du ZIP terminé')

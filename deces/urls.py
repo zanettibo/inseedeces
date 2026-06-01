@@ -8,8 +8,10 @@ urlpatterns = [
     path('', views.index, name='index'),
     path('import/', views.import_data, name='import_data'),
     path('import/<int:import_id>/status/', views.import_status, name='import_status'),
+    path('import/<int:import_id>/stream/', views.import_status_stream, name='import_status_stream'),
     path('import/stats/', views.import_stats, name='import_stats'),
     path('search/', views.search, name='search'),
+    path('search/export/', views.export_search, name='export_search'),
     
     # URLs pour la gestion des erreurs d'import
     path('import/errors/', views.ImportErrorListView.as_view(), name='import-error-list'),

@@ -143,6 +143,44 @@ def import_status(request, import_id):
     except ImportHistory.DoesNotExist:
         return JsonResponse({'error': 'Import non trouvé'}, status=404)
 
+@login_required
+@require_http_methods(['GET'])
+def import_status_stream(request, import_id):
+    import json, time
+    from django.http import StreamingHttpResponse
+
+    TERMINAL = {'completed', 'failed'}
+    MAX_SECONDS = 30 * 60
+
+    def event_stream():
+        elapsed = 0
+        while elapsed < MAX_SECONDS:
+            try:
+                ih = ImportHistory.objects.get(id=import_id)
+                payload = json.dumps({
+                    'status': ih.status,
+                    'status_display': ih.get_status_display(),
+                    'records_processed': ih.records_processed,
+                    'total_records': ih.total_records,
+                    'error_message': ih.error_message,
+                    'pending_errors': ih.pending_errors,
+                })
+                yield f"data: {payload}\n\n"
+                if ih.status in TERMINAL:
+                    break
+            except ImportHistory.DoesNotExist:
+                yield 'data: {"error":"not_found"}\n\n'
+                break
+            time.sleep(2)
+            elapsed += 2
+        yield "event: done\ndata: {}\n\n"
+
+    response = StreamingHttpResponse(event_stream(), content_type='text/event-stream')
+    response['Cache-Control'] = 'no-cache'
+    response['X-Accel-Buffering'] = 'no'
+    return response
+
+
 @rate_limit('import_stats', limit=300)
 @require_http_methods(['GET'])
 @cache_page(2)  # Cache for 2 seconds
@@ -578,6 +616,119 @@ def search(request):
     response['Pragma'] = 'no-cache'
     response['Expires'] = '0'
     return response
+
+EXPORT_LIMIT = 50_000
+EXPORT_SEXE = {'1': 'M', '2': 'F'}
+
+
+def _build_db_queryset(get_params):
+    """Build filtered Deces queryset from GET params (no pagination, no Meilisearch)."""
+    nom = get_params.get('nom', '').strip()
+    nom_flexible = get_params.get('nom_flexible')
+    prenoms = get_params.get('prenoms', '').strip()
+    prenoms_flexible = get_params.get('prenoms_flexible')
+    sexe = get_params.get('sexe', '')
+    date_naissance_debut = get_params.get('date_naissance_debut', '')
+    date_naissance_fin = get_params.get('date_naissance_fin', '')
+    date_deces_debut = get_params.get('date_deces_debut', '')
+    date_deces_fin = get_params.get('date_deces_fin', '')
+    lieu_naissance_id = get_params.get('lieu_naissance', '')
+    lieu_naissance_type = get_params.get('lieu_naissance_type', '')
+    lieu_deces_id = get_params.get('lieu_deces', '')
+    lieu_deces_type = get_params.get('lieu_deces_type', '')
+
+    qs = Deces.objects.all()
+
+    if nom:
+        qs = qs.filter(nom__contains=nom.upper()) if nom_flexible == 'on' else qs.filter(nom=nom.upper())
+    if prenoms:
+        qs = qs.filter(prenoms__contains=prenoms.upper()) if prenoms_flexible == 'on' else qs.filter(prenoms=prenoms.upper())
+    if sexe:
+        qs = qs.filter(sexe=sexe)
+    if date_naissance_debut:
+        qs = qs.filter(date_naissance__gte=date_naissance_debut)
+    if date_naissance_fin:
+        qs = qs.filter(date_naissance__lte=date_naissance_fin)
+    if date_deces_debut:
+        qs = qs.filter(date_deces__gte=date_deces_debut)
+    if date_deces_fin:
+        qs = qs.filter(date_deces__lte=date_deces_fin)
+
+    if lieu_naissance_id and lieu_naissance_type:
+        if lieu_naissance_type == 'commune':
+            qs = qs.filter(lieu_naissance=lieu_naissance_id)
+        elif lieu_naissance_type == 'departement':
+            qs = qs.filter(lieu_naissance__in=Commune.objects.filter(dep=lieu_naissance_id).values_list('com', flat=True))
+        elif lieu_naissance_type == 'region':
+            qs = qs.filter(lieu_naissance__in=Commune.objects.filter(reg=lieu_naissance_id).values_list('com', flat=True))
+        elif lieu_naissance_type == 'pays':
+            qs = qs.filter(lieu_naissance=lieu_naissance_id)
+
+    if lieu_deces_id and lieu_deces_type:
+        if lieu_deces_type == 'commune':
+            qs = qs.filter(lieu_deces=lieu_deces_id)
+        elif lieu_deces_type == 'departement':
+            qs = qs.filter(lieu_deces__in=Commune.objects.filter(dep=lieu_deces_id).values_list('com', flat=True))
+        elif lieu_deces_type == 'region':
+            qs = qs.filter(lieu_deces__in=Commune.objects.filter(reg=lieu_deces_id).values_list('com', flat=True))
+        elif lieu_deces_type == 'pays':
+            qs = qs.filter(lieu_deces=lieu_deces_id)
+
+    return qs
+
+
+def export_search(request):
+    from django.http import StreamingHttpResponse
+    import csv
+
+    get_params = request.GET
+    has_criteria = any(get_params.get(k) for k in [
+        'nom', 'prenoms', 'sexe',
+        'date_naissance_debut', 'date_naissance_fin',
+        'date_deces_debut', 'date_deces_fin',
+        'lieu_naissance', 'lieu_deces',
+    ])
+    if not has_criteria:
+        from django.http import HttpResponseBadRequest
+        return HttpResponseBadRequest("Au moins un critère de recherche est requis.")
+
+    qs = _build_db_queryset(get_params).order_by('nom', 'prenoms')[:EXPORT_LIMIT]
+
+    def generate_rows():
+        header = ['nom', 'prenoms', 'sexe', 'date_naissance', 'lieu_naissance', 'date_deces', 'lieu_deces']
+        yield header
+        for d in qs.iterator(chunk_size=2000):
+            yield [
+                d.nom or '',
+                d.prenoms or '',
+                EXPORT_SEXE.get(d.sexe, d.sexe or ''),
+                d.date_naissance.strftime('%d/%m/%Y') if d.date_naissance else '',
+                d.lieu_naissance_libelle or d.lieu_naissance or '',
+                d.date_deces.strftime('%d/%m/%Y') if d.date_deces else '',
+                d.lieu_deces_libelle or d.lieu_deces or '',
+            ]
+
+    class CsvWriter:
+        def __init__(self):
+            import io
+            self.buf = io.StringIO()
+            self.writer = csv.writer(self.buf, delimiter=';')
+
+        def write_row(self, row):
+            self.writer.writerow(row)
+            data = self.buf.getvalue()
+            self.buf.truncate(0)
+            self.buf.seek(0)
+            return data
+
+    writer = CsvWriter()
+    response = StreamingHttpResponse(
+        (writer.write_row(row) for row in generate_rows()),
+        content_type='text/csv; charset=utf-8-sig',
+    )
+    response['Content-Disposition'] = 'attachment; filename="deces_export.csv"'
+    return response
+
 
 class ImportErrorListView(LoginRequiredMixin, ListView):
     def dispatch(self, request, *args, **kwargs):

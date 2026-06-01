@@ -39,4 +39,4 @@ ENV DEBUG=False
 ENTRYPOINT ["/usr/local/bin/docker-entrypoint.sh"]
 
 # Commande par défaut pour le conteneur web
-CMD ["gunicorn", "--bind", "0.0.0.0:8000", "insee_deces.wsgi:application"]
+CMD ["gunicorn", "--bind", "0.0.0.0:8000", "--worker-class", "gthread", "--workers", "2", "--threads", "4", "--timeout", "120", "insee_deces.wsgi:application"]

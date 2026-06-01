@@ -223,9 +223,20 @@
                             </div>
                         </div>
                         
-                        <div class="col-12">
+                        <div class="col-12 d-flex align-items-center gap-2">
                             <button type="submit" class="btn btn-primary">Rechercher</button>
                             <a href="{% url 'deces:search' %}" class="btn btn-outline-secondary">Réinitialiser</a>
+                            {% if has_search_criteria %}
+                            <a href="{% url 'deces:export_search' %}?{{ request.GET.urlencode }}"
+                               class="btn btn-outline-success ms-auto">
+                                <i class="bi bi-download"></i> Exporter CSV
+                                {% if page_obj.paginator.count > 50000 %}
+                                <span class="badge bg-warning text-dark ms-1">50 000 max</span>
+                                {% else %}
+                                <span class="badge bg-secondary ms-1">{{ page_obj.paginator.count }}</span>
+                                {% endif %}
+                            </a>
+                            {% endif %}
                         </div>
                     </div>
                 </form>
