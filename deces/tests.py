@@ -335,6 +335,8 @@ class ExportSearchViewTest(TestCase):
 
     def setUp(self):
         self.client = Client()
+        user = User.objects.create_user(username='export_test', password='pass', is_staff=True)
+        self.client.force_login(user)
 
     def _get(self, **params):
         return self.client.get(reverse('deces:export_search'), params)
