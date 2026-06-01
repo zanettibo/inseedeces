@@ -24,7 +24,8 @@ COPY . .
 # Création des dossiers statiques
 RUN mkdir -p static staticfiles
 
-# Collecte des fichiers statiques
+# Collecte des fichiers statiques (clé factice — uniquement pour collectstatic, pas dans l'image finale)
+ARG DJANGO_SECRET_KEY=build-time-key-not-for-production
 RUN python manage.py collectstatic --noinput
 
 # Exposition du port
