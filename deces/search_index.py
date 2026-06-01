@@ -1,6 +1,5 @@
 import logging
 from datetime import datetime, timezone, date as date_type
-from functools import reduce
 
 logger = logging.getLogger(__name__)
 
@@ -18,8 +17,8 @@ def setup_index():
     client = _get_client()
     try:
         client.create_index('deces', {'primaryKey': 'id'})
-    except Exception:
-        pass
+    except Exception as e:
+        logger.debug("Index 'deces' already exists or creation failed: %s", e)
     index = client.index('deces')
     index.update_settings({
         'searchableAttributes': ['nom', 'prenoms'],

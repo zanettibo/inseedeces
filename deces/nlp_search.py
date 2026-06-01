@@ -91,7 +91,7 @@ def _gemini_parse(query: str) -> dict:
                 logger.warning(f"Model {model} failed: {err_str[:120]}")
             last_err = e
 
-    raise last_err
+    raise last_err or RuntimeError("No models available to try")
 
 
 def _normalize(s: str) -> str:
