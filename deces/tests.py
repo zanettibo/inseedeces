@@ -249,8 +249,8 @@ class SearchViewTest(TestCase):
 
     @classmethod
     def setUpTestData(cls):
-        _commune = make_commune()
-        _pays = make_pays()
+        make_commune()
+        make_pays()
         cls.d1 = make_deces(nom='DUPONT', prenoms='JEAN', sexe='1',
                             date_naissance=date(1950, 1, 1), date_deces=date(2020, 1, 1),
                             lieu_naissance='75056', lieu_deces='75056',
