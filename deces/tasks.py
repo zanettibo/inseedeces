@@ -1,8 +1,5 @@
 import os
-import csv
-import uuid
 import hashlib
-import shutil
 import tempfile
 import zipfile
 import pandas as pd

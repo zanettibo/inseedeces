@@ -5,7 +5,7 @@ from django.test import TestCase, Client
 from django.urls import reverse
 from django.contrib.auth import get_user_model
 
-from deces.models import Deces, Commune, Departement, Region, Pays, ImportHistory
+from deces.models import Deces, Commune, Departement, Region, Pays
 from deces.tasks import parse_insee_date, parse_row, ParseError, _resolve_libelle
 from deces.search_index import deces_to_doc
 
@@ -249,8 +249,8 @@ class SearchViewTest(TestCase):
 
     @classmethod
     def setUpTestData(cls):
-        commune = make_commune()
-        pays = make_pays()
+        _commune = make_commune()
+        _pays = make_pays()
         cls.d1 = make_deces(nom='DUPONT', prenoms='JEAN', sexe='1',
                             date_naissance=date(1950, 1, 1), date_deces=date(2020, 1, 1),
                             lieu_naissance='75056', lieu_deces='75056',

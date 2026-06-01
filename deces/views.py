@@ -613,8 +613,7 @@ def search(request):
                 paginator = MeiliPaginator(total, 20)
                 page_obj = MeiliPage(object_list, int(page), paginator)
             except Exception as e:
-                import logging
-                logging.getLogger(__name__).warning(f"Meilisearch unavailable, falling back to DB: {e}")
+                logger.warning(f"Meilisearch unavailable, falling back to DB: {e}")
                 use_meilisearch = False
 
         if not use_meilisearch:
@@ -640,6 +639,7 @@ def search(request):
             elif lieu_type == 'pays':
                 pays = Pays.objects.get(cog=lieu_id)
                 return pays.libcog
+            return None
         except (Commune.DoesNotExist, Departement.DoesNotExist, Region.DoesNotExist, Pays.DoesNotExist):
             return None
 

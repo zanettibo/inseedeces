@@ -1,6 +1,6 @@
 from django.contrib import admin
 from django.utils.html import format_html
-from .models import ImportHistory, Deces, DecesImportError
+from .models import ImportHistory, DecesImportError
 
 @admin.register(ImportHistory)
 class ImportHistoryAdmin(admin.ModelAdmin):
@@ -49,8 +49,3 @@ class DecesImportErrorAdmin(admin.ModelAdmin):
         }),
     )
 
-#@admin.register(Deces)
-#class DecesAdmin(admin.ModelAdmin):
-#    list_display = ('nom', 'prenoms', 'date_naissance', 'date_deces')
-#    search_fields = ('nom', 'prenoms')
-#    list_filter = ('date_naissance', 'date_deces')
