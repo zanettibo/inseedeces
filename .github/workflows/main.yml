@@ -41,7 +41,7 @@ jobs:
           - 6379:6379
 
     env:
-      DATABASE_URL: mysql://insee:ci_pass@127.0.0.1:3306/insee_deces
+      DATABASE_URL: mysql://root:ci_root@127.0.0.1:3306/insee_deces
       DJANGO_SECRET_KEY: ci-secret-key-not-for-production
       DEBUG: "True"
       ALLOWED_HOSTS: localhost,127.0.0.1
