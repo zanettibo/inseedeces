@@ -22,7 +22,7 @@
               <label>URL du fichier ZIP INSEE</label>
               <input type="url" class="form-control" id="url" name="url" required
                      placeholder="https://www.insee.fr/fr/statistiques/fichier/…">
-              <div class="form-text mt-1">Fichier ZIP contenant les données de décès INSEE (format CSV)</div>
+              <div class="form-text mt-1">Fichier ZIP contenant les données de décès INSEE (format CSV) — <a href="https://www.insee.fr/fr/information/4190491" target="_blank" rel="noopener">Trouver les fichiers INSEE</a></div>
             </div>
             <button type="submit" class="btn btn-primary" id="submit-btn">
               <i class="bi bi-cloud-upload me-1"></i>Lancer l'import
@@ -45,6 +45,21 @@
           </div>
         </div>
       </div>
+    </div>
+  </div>
+
+  <div class="card mt-4">
+    <div class="card-header"><i class="bi bi-cloud-arrow-down me-2"></i>Fichiers disponibles (data.gouv.fr)</div>
+    <div class="card-body" id="datagouv-container" style="min-height:56px;">
+      <div id="datagouv-loading" class="d-flex align-items-center gap-2" style="color:var(--t4);font-size:13px;">
+        <div class="spinner-border spinner-border-sm" role="status"></div>
+        Chargement…
+      </div>
+      <div id="datagouv-error" class="alert alert-warning d-none mb-0" style="font-size:13px;"></div>
+      <div id="datagouv-empty" class="d-none" style="font-size:13px;color:var(--t3);">
+        <i class="bi bi-check-circle text-success me-1"></i>Tout est à jour
+      </div>
+      <div id="datagouv-list"></div>
     </div>
   </div>
 
@@ -188,6 +203,73 @@ document.addEventListener('DOMContentLoaded', () => {
       startStream(row.dataset.importId);
   });
 });
+
+function esc(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+function fmtSize(b) {
+  if (!b) return '';
+  return b > 1048576 ? `${(b/1048576).toFixed(1)} Mo` : `${(b/1024).toFixed(0)} Ko`;
+}
+function fmtDate(s) {
+  if (!s) return '';
+  return new Date(s).toLocaleDateString('fr-FR');
+}
+
+function importDatagouvFile(url, btn) {
+  btn.disabled = true;
+  btn.innerHTML = '<i class="bi bi-hourglass-split me-1"></i>…';
+  const form = new FormData();
+  form.append('url', url);
+  form.append('csrfmiddlewaretoken', document.querySelector('[name=csrfmiddlewaretoken]').value);
+  fetch('{% url "deces:import_data" %}', {method: 'POST', body: form})
+    .then(r => r.json())
+    .then(d => {
+      if (d.success) window.location.reload();
+      else { btn.disabled = false; btn.innerHTML = '<i class="bi bi-cloud-arrow-down me-1"></i>Importer'; alert(d.error); }
+    })
+    .catch(() => { btn.disabled = false; btn.innerHTML = '<i class="bi bi-cloud-arrow-down me-1"></i>Importer'; });
+}
+
+fetch('{% url "deces:datagouv_available_files" %}')
+  .then(r => r.json())
+  .then(d => {
+    document.getElementById('datagouv-loading').classList.add('d-none');
+    if (d.error) {
+      const el = document.getElementById('datagouv-error');
+      el.textContent = d.error;
+      el.classList.remove('d-none');
+      return;
+    }
+    if (!d.files.length) {
+      document.getElementById('datagouv-empty').classList.remove('d-none');
+      return;
+    }
+    const list = document.getElementById('datagouv-list');
+    d.files.forEach(f => {
+      const div = document.createElement('div');
+      div.className = 'd-flex align-items-center justify-content-between mb-2';
+      div.style.gap = '8px';
+      div.innerHTML = `
+        <div>
+          <div style="font-family:var(--fm);font-size:13px;color:var(--t1);">${esc(f.title)}</div>
+          <div style="font-size:11px;color:var(--t3);">${fmtDate(f.created_at)} · ${fmtSize(f.filesize)}</div>
+        </div>
+        <button class="btn btn-sm btn-primary dg-import-btn" style="white-space:nowrap;">
+          <i class="bi bi-cloud-arrow-down me-1"></i>Importer
+        </button>`;
+      div.querySelector('.dg-import-btn').addEventListener('click', function() {
+        importDatagouvFile(f.url, this);
+      });
+      list.appendChild(div);
+    });
+  })
+  .catch(() => {
+    document.getElementById('datagouv-loading').classList.add('d-none');
+    const el = document.getElementById('datagouv-error');
+    el.textContent = 'Erreur de chargement';
+    el.classList.remove('d-none');
+  });
 
 document.getElementById('import-form').addEventListener('submit', function(e) {
   e.preventDefault();

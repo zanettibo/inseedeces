@@ -17,6 +17,21 @@ logger = get_task_logger(__name__)
 
 BATCH_SIZE = 5000
 CHUNK_SIZE = 10000
+DATAGOUV_DATASET_ID = '5de8f397634f4164071119c5'
+
+
+def parse_txt_line(line):
+    return {
+        'nomprenom': line[0:80].strip(),
+        'sexe': line[80:81],
+        'datenaiss': line[81:89],
+        'lieunaiss': line[89:94].strip(),
+        'commnaiss': line[94:124].strip(),
+        'paysnaiss': line[124:154].strip(),
+        'datedeces': line[154:162],
+        'lieudeces': line[162:167].strip(),
+        'actedeces': line[167:176].strip(),
+    }
 
 
 def parse_insee_date(date_str):
@@ -141,6 +156,74 @@ def clean_previous_import(csv_filename, md5_hash):
         return False
 
 
+def _flush_batch(deces_batch, commune_info, pays_map):
+    Deces.objects.bulk_create(deces_batch, update_conflicts=True, update_fields=[
+        'lieu_naissance', 'lieu_naissance_nom',
+        'lieu_naissance_libelle', 'lieu_deces_libelle',
+    ])
+    meili_docs = [deces_to_doc(d, commune_info=commune_info, pays_libelle=pays_map) for d in deces_batch]
+    add_documents_batch(meili_docs)
+
+
+def _process_rows(rows_iter, import_history, commune_info, pays_map, total_records):
+    records_processed = 0
+    error_count = 0
+    deces_batch = []
+
+    for index, row in enumerate(rows_iter):
+        try:
+            parsed_data = parse_row(row, commune_info=commune_info, pays_map=pays_map)
+            deces_batch.append(Deces(
+                nom=parsed_data['nom'],
+                prenoms=parsed_data['prenoms'],
+                sexe=parsed_data['sexe'],
+                date_naissance=parsed_data['date_naissance'],
+                lieu_naissance=parsed_data['lieu_naissance'],
+                lieu_naissance_nom=parsed_data['lieu_naissance_nom'],
+                lieu_naissance_libelle=parsed_data['lieu_naissance_libelle'],
+                date_deces=parsed_data['date_deces'],
+                lieu_deces=parsed_data['lieu_deces'],
+                lieu_deces_libelle=parsed_data['lieu_deces_libelle'],
+                acte_deces=parsed_data['acte_deces'],
+            ))
+            records_processed += 1
+
+            if len(deces_batch) >= BATCH_SIZE:
+                _flush_batch(deces_batch, commune_info, pays_map)
+                deces_batch = []
+
+        except (ParseError, Exception) as e:
+            error_count += 1
+            error_type = 'parsing' if isinstance(e, ParseError) else 'inattendue'
+            logger.error(f'Erreur de {error_type} ligne {index+1}: {str(e)}\nDonnées: {row}')
+
+            try:
+                parsed_data = parse_row(row, no_error=True)
+            except Exception:
+                parsed_data = {}
+
+            DecesImportError.objects.create(
+                raw_data={k: str(v) if v is not None else None for k, v in row.items()},
+                error_message=str(e),
+                import_history=import_history,
+                **{k: v for k, v in parsed_data.items() if k not in ('lieu_naissance_libelle', 'lieu_deces_libelle')}
+            )
+
+            if error_count > 100:
+                raise Exception(f'Trop d\'erreurs ({error_count}), import arrêté')
+
+        if index % 1000 == 0:
+            import_history.records_processed = records_processed
+            import_history.save()
+            if total_records:
+                logger.info(f'Progression : {records_processed}/{total_records} ({(records_processed/total_records*100):.1f}%)')
+
+    if deces_batch:
+        _flush_batch(deces_batch, commune_info, pays_map)
+
+    return records_processed
+
+
 @shared_task(bind=True)
 def process_insee_file(self, zip_url, zip_filename):
     logger.info(f'Démarrage du traitement pour {zip_filename}')
@@ -215,87 +298,13 @@ def process_insee_file(self, zip_url, zip_filename):
                     logger.info(f'Nombre total d\'enregistrements à traiter : {records}')
                     f.seek(0)
                     chunks = pd.read_csv(f, sep=';', dtype=str, chunksize=CHUNK_SIZE)
-                    error_count = 0
-                    deces_batch = []
-                    meili_batch = []
 
-                    for chunk in chunks:
-                        for index, row in chunk.iterrows():
-                            try:
-                                parsed_data = parse_row(row, commune_info=commune_info, pays_map=pays_map)
+                    def pandas_iter():
+                        for chunk in chunks:
+                            for _, row in chunk.iterrows():
+                                yield {k: (None if pd.isna(v) else str(v)) for k, v in row.items()}
 
-                                deces = Deces(
-                                    nom=parsed_data['nom'],
-                                    prenoms=parsed_data['prenoms'],
-                                    sexe=parsed_data['sexe'],
-                                    date_naissance=parsed_data['date_naissance'],
-                                    lieu_naissance=parsed_data['lieu_naissance'],
-                                    lieu_naissance_nom=parsed_data['lieu_naissance_nom'],
-                                    lieu_naissance_libelle=parsed_data['lieu_naissance_libelle'],
-                                    date_deces=parsed_data['date_deces'],
-                                    lieu_deces=parsed_data['lieu_deces'],
-                                    lieu_deces_libelle=parsed_data['lieu_deces_libelle'],
-                                    acte_deces=parsed_data['acte_deces'],
-                                )
-                                deces_batch.append(deces)
-                                records_processed += 1
-
-                                if len(deces_batch) >= BATCH_SIZE:
-                                    Deces.objects.bulk_create(deces_batch, update_conflicts=True, update_fields=[
-                                        'lieu_naissance', 'lieu_naissance_nom',
-                                        'lieu_naissance_libelle', 'lieu_deces_libelle',
-                                    ])
-                                    meili_docs = [
-                                        deces_to_doc(d, commune_info=commune_info, pays_libelle=pays_map)
-                                        for d in deces_batch
-                                    ]
-                                    add_documents_batch(meili_docs)
-                                    deces_batch = []
-
-                            except (ParseError, Exception) as e:
-                                error_count += 1
-                                error_type = 'parsing' if isinstance(e, ParseError) else 'inattendue'
-                                logger.error(f'Erreur de {error_type} ligne {index+1}: {str(e)}\nDonnées: {row}')
-
-                                try:
-                                    parsed_data = parse_row(row, no_error=True)
-                                except Exception:
-                                    parsed_data = {}
-
-                                raw_data = {}
-                                for k, v in row.to_dict().items():
-                                    if pd.isna(v):
-                                        raw_data[k] = None
-                                    else:
-                                        raw_data[k] = str(v)
-
-                                DecesImportError.objects.create(
-                                    raw_data=raw_data,
-                                    error_message=str(e),
-                                    import_history=import_history,
-                                    **{k: v for k, v in parsed_data.items()
-                                       if k not in ('lieu_naissance_libelle', 'lieu_deces_libelle')}
-                                )
-
-                                if error_count > 100:
-                                    raise Exception(f'Trop d\'erreurs ({error_count}), import arrêté')
-
-                            if index % 1000 == 0:
-                                import_history.records_processed = records_processed
-                                import_history.save()
-                                logger.info(f'Progression : {records_processed}/{records} ({(records_processed/records*100):.1f}%)')
-
-                        if deces_batch:
-                            Deces.objects.bulk_create(deces_batch, update_conflicts=True, update_fields=[
-                                'lieu_naissance', 'lieu_naissance_nom',
-                                'lieu_naissance_libelle', 'lieu_deces_libelle',
-                            ])
-                            meili_docs = [
-                                deces_to_doc(d, commune_info=commune_info, pays_libelle=pays_map)
-                                for d in deces_batch
-                            ]
-                            add_documents_batch(meili_docs)
-                            deces_batch = []
+                    records_processed = _process_rows(pandas_iter(), import_history, commune_info, pays_map, records)
 
                     import_history.total_records = records
                     import_history.records_processed = records_processed
@@ -306,7 +315,7 @@ def process_insee_file(self, zip_url, zip_filename):
 
                     if records_processed < records * 0.9:
                         raise Exception(f'Import incomplet : seulement {records_processed}/{records} enregistrements traités')
-                    logger.info(f'Import terminé : {records_processed} enregistrements traités, {error_count} erreurs')
+                    logger.info(f'Import terminé : {records_processed} enregistrements traités')
 
     except Exception as e:
         logger.error(f'Erreur lors du traitement : {str(e)}')
@@ -324,3 +333,94 @@ def process_insee_file(self, zip_url, zip_filename):
             logger.warning(f'Erreur nettoyage fichier temporaire : {str(e)}')
 
     logger.info('Traitement du ZIP terminé')
+
+
+@shared_task(bind=True)
+def process_datagouv_file(self, txt_url, txt_filename):
+    logger.info(f'Démarrage du traitement data.gouv.fr pour {txt_filename}')
+    temp_txt = None
+
+    try:
+        logger.info('Chargement des référentiels géographiques...')
+        commune_info, pays_map = _load_reference_maps()
+
+        import_history = ImportHistory.objects.create(
+            zip_url=txt_url,
+            zip_filename=txt_filename,
+            csv_filename=txt_filename,
+            md5_hash='unknown',
+            status='downloading'
+        )
+
+        try:
+            response = requests.get(txt_url, stream=True, timeout=60)
+            response.raise_for_status()
+        except Exception as e:
+            import_history.update_status('failed', str(e))
+            raise
+
+        with tempfile.NamedTemporaryFile(delete=False, suffix='.txt', mode='wb') as temp_txt:
+            total_size = int(response.headers.get('content-length', 0))
+            downloaded_size = 0
+            for chunk in response.iter_content(chunk_size=8192):
+                if chunk:
+                    downloaded_size += len(chunk)
+                    temp_txt.write(chunk)
+                    if total_size:
+                        logger.debug(f'Téléchargement : {(downloaded_size/total_size*100):.1f}%')
+            temp_txt.flush()
+        logger.info('Fichier TXT téléchargé avec succès')
+
+        with open(temp_txt.name, 'rb') as f:
+            md5_hash = hashlib.md5(f.read()).hexdigest()
+
+        if ImportHistory.objects.filter(csv_filename=txt_filename, md5_hash=md5_hash).exclude(id=import_history.id).exists():
+            logger.info(f'Le fichier {txt_filename} a déjà été traité')
+            import_history.delete()
+            return
+
+        import_history.md5_hash = md5_hash
+        import_history.status = 'checking'
+        import_history.save()
+
+        with open(temp_txt.name, 'r', encoding='utf-8', errors='replace') as f:
+            lines = [line.rstrip('\n\r') for line in f if len(line.rstrip('\n\r')) >= 176]
+
+        records = len(lines)
+        import_history.total_records = records
+        import_history.status = 'processing'
+        import_history.save()
+        logger.info(f'Nombre total d\'enregistrements à traiter : {records}')
+
+        records_processed = _process_rows(
+            (parse_txt_line(line) for line in lines),
+            import_history, commune_info, pays_map, records
+        )
+
+        import_history.total_records = records
+        import_history.records_processed = records_processed
+        import_history.update_status('completed')
+
+        from django.core.cache import cache
+        cache.delete('dashboard_stats_v1')
+
+        if records_processed < records * 0.9:
+            raise Exception(f'Import incomplet : seulement {records_processed}/{records} enregistrements traités')
+        logger.info(f'Import terminé : {records_processed} enregistrements traités')
+
+    except Exception as e:
+        logger.error(f'Erreur lors du traitement : {str(e)}')
+        if 'import_history' in locals():
+            import_history.status = 'failed'
+            import_history.error_message = str(e)
+            import_history.save()
+        raise
+
+    finally:
+        try:
+            if temp_txt is not None and os.path.exists(temp_txt.name):
+                os.unlink(temp_txt.name)
+        except Exception as e:
+            logger.warning(f'Erreur nettoyage fichier temporaire : {str(e)}')
+
+    logger.info('Traitement data.gouv.fr terminé')

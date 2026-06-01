@@ -1,5 +1,7 @@
+import re
 import math
 import logging
+import requests
 from functools import reduce
 from datetime import date as date_type
 
@@ -20,7 +22,7 @@ from django.core.cache import cache
 from django.urls import reverse
 
 from .models import Deces, Commune, Region, Departement, Pays, ImportHistory, DecesImportError
-from .tasks import process_insee_file
+from .tasks import process_insee_file, process_datagouv_file, DATAGOUV_DATASET_ID
 from .forms import ImportErrorForm
 
 
@@ -98,21 +100,21 @@ def import_data(request):
         messages.error(request, 'Vous devez être membre du staff pour importer des données.')
         return redirect('deces:index')
     if request.method == 'POST':
-        url = request.POST.get('url')
-        if not url or not url.endswith('.zip'):
-            return JsonResponse({'error': 'URL invalide'}, status=400)
-        if not url.startswith('https://www.insee.fr/fr/statistiques/fichier/'):
+        url = request.POST.get('url', '')
+        is_zip = url.endswith('.zip') and url.startswith('https://www.insee.fr/fr/statistiques/fichier/')
+        is_txt = url.endswith('.txt') and url.startswith('https://static.data.gouv.fr/')
+
+        if not (is_zip or is_txt):
             return JsonResponse({'error': 'URL invalide'}, status=400)
 
         try:
-            # Lancer la tâche asynchrone avec l'URL et le nom du fichier
             filename = url.split('/')[-1]
-            process_insee_file.delay(url, filename)
+            if is_zip:
+                process_insee_file.delay(url, filename)
+            else:
+                process_datagouv_file.delay(url, filename)
 
-            return JsonResponse({
-                'success': True,
-                'message': 'Import lancé. Les fichiers CSV non déjà importés seront traités.'
-            })
+            return JsonResponse({'success': True, 'message': 'Import lancé.'})
 
         except Exception:
             return JsonResponse({'error': 'Erreur interne, veuillez réessayer.'}, status=500)
@@ -198,6 +200,80 @@ def import_stats(request):
         'total_records_processed': stats['processed'] or 0,
         'total_records': stats['total'] or 0
     })
+
+def _filename_months(filename):
+    """Return frozenset of (year, month) tuples covered by a filename."""
+    base = re.sub(r'\.(csv|txt|zip)$', '', filename.lower().replace('_', '-'))
+    m = re.match(r'deces-(\d{4})-m(\d{2})$', base)
+    if m:
+        return frozenset({(int(m.group(1)), int(m.group(2)))})
+    m = re.match(r'deces-(\d{4})-t([1-4])$', base)
+    if m:
+        year, q = int(m.group(1)), int(m.group(2))
+        start = (q - 1) * 3 + 1
+        return frozenset({(year, start), (year, start + 1), (year, start + 2)})
+    m = re.match(r'deces-(\d{4})$', base)
+    if m:
+        year = int(m.group(1))
+        return frozenset({(year, mo) for mo in range(1, 13)})
+    return frozenset()
+
+
+@login_required
+@require_http_methods(['GET'])
+def datagouv_available_files(request):
+    if not request.user.is_staff:
+        return JsonResponse({'error': 'Permission refusée'}, status=403)
+
+    cached = cache.get('datagouv_resources_v1')
+    if cached is None:
+        try:
+            resp = requests.get(
+                f'https://www.data.gouv.fr/api/1/datasets/{DATAGOUV_DATASET_ID}/',
+                timeout=5,
+            )
+            resp.raise_for_status()
+            data = resp.json()
+            cached = data.get('resources', [])
+            cache.set('datagouv_resources_v1', cached, 300)
+        except Exception as e:
+            return JsonResponse({'error': f'API data.gouv.fr indisponible : {e}'}, status=502)
+
+    imported_filenames = ImportHistory.objects.filter(
+        status__in=['completed', 'processing', 'checking', 'downloading']
+    ).values_list('csv_filename', flat=True)
+
+    # Normalized names for direct match (e.g. Deces_2026_M01.csv → deces-2026-m01)
+    imported_normalized = {
+        re.sub(r'\.(csv|txt|zip)$', '', f.lower().replace('_', '-'))
+        for f in imported_filenames
+    }
+    # All months covered by imported files
+    imported_months = set()
+    for f in imported_filenames:
+        imported_months |= _filename_months(f)
+
+    available = []
+    for r in cached:
+        title = r.get('title', '')
+        if not title.endswith('.txt'):
+            continue
+        base = re.sub(r'\.txt$', '', title.lower().replace('_', '-'))
+        if base in imported_normalized:
+            continue
+        months = _filename_months(title)
+        if months and months.issubset(imported_months):
+            continue
+        available.append({
+            'title': title,
+            'url': r['url'],
+            'created_at': r.get('last_modified') or r.get('created_at', ''),
+            'filesize': r.get('filesize', 0),
+        })
+
+    available.sort(key=lambda x: x['title'], reverse=True)
+    return JsonResponse({'files': available})
+
 
 def autocomplete_lieu(request):
     query = request.GET.get('q', '')

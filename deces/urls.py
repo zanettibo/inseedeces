@@ -10,6 +10,7 @@ urlpatterns = [
     path('import/<int:import_id>/status/', views.import_status, name='import_status'),
     path('import/<int:import_id>/stream/', views.import_status_stream, name='import_status_stream'),
     path('import/stats/', views.import_stats, name='import_stats'),
+    path('import/datagouv/', views.datagouv_available_files, name='datagouv_available_files'),
     path('search/', views.search, name='search'),
     path('search/nlp/', views.nlp_search, name='nlp_search'),
     path('dashboard/', views.dashboard, name='dashboard'),
