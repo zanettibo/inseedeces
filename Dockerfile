@@ -2,7 +2,7 @@ FROM python:3-slim
 
 ENV PYTHONUNBUFFERED=1
 ENV PYTHONDONTWRITEBYTECODE=1
-ENV DEBUG=True
+ENV DEBUG=False
 
 WORKDIR /app
 
@@ -34,7 +34,6 @@ EXPOSE 8000
 COPY docker-entrypoint*.sh /usr/local/bin/
 RUN chmod +x /usr/local/bin/docker-entrypoint*.sh
 
-ENV DEBUG=False
 # Entrypoint par défaut
 ENTRYPOINT ["/usr/local/bin/docker-entrypoint.sh"]
 
