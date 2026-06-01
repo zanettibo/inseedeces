@@ -139,15 +139,17 @@ def import_data(request):
 def import_status(request, import_id):
     try:
         import_history = ImportHistory.objects.get(id=import_id)
-        return JsonResponse({
+        data = {
             'status': import_history.status,
             'status_display': import_history.get_status_display(),
             'records_processed': import_history.records_processed,
             'total_records': import_history.total_records,
-            'error_message': import_history.error_message,
             'csv_filename': import_history.csv_filename,
             'pending_errors': import_history.pending_errors
-        })
+        }
+        if request.user.is_staff:
+            data['error_message'] = import_history.error_message
+        return JsonResponse(data)
     except ImportHistory.DoesNotExist:
         return JsonResponse({'error': 'Import non trouvé'}, status=404)
 
@@ -238,8 +240,8 @@ def datagouv_available_files(request):
             data = resp.json()
             cached = data.get('resources', [])
             cache.set('datagouv_resources_v1', cached, 300)
-        except Exception as e:
-            return JsonResponse({'error': f'API data.gouv.fr indisponible : {e}'}, status=502)
+        except Exception:
+            return JsonResponse({'error': 'API data.gouv.fr indisponible'}, status=502)
 
     imported_filenames = ImportHistory.objects.filter(
         status__in=['completed', 'processing', 'checking', 'downloading']
