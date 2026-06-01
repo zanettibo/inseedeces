@@ -203,6 +203,19 @@ TIME_ZONE = 'Europe/Paris'
 MEILISEARCH_URL = os.getenv('MEILISEARCH_URL', 'http://meilisearch:7700')
 MEILISEARCH_API_KEY = os.getenv('MEILISEARCH_API_KEY', 'masterKey_inseedeces_secret')
 
+SENTRY_DSN = os.getenv('SENTRY_DSN', '')
+if SENTRY_DSN:
+    import sentry_sdk
+    sentry_sdk.init(
+        dsn=SENTRY_DSN,
+        environment=os.getenv('SENTRY_ENVIRONMENT', 'production' if not DEBUG else 'development'),
+        traces_sample_rate=float(os.getenv('SENTRY_TRACES_SAMPLE_RATE', '0.1')),
+        profile_session_sample_rate=float(os.getenv('SENTRY_PROFILE_SAMPLE_RATE', '0.1')),
+        profile_lifecycle='trace',
+        send_default_pii=False,
+        enable_logs=True,
+    )
+
 CELERY_BROKER_URL = os.getenv('CELERY_BROKER_URL', 'redis://localhost:6379/0')
 CELERY_RESULT_BACKEND = 'django-db'
 CELERY_ACCEPT_CONTENT = ['json']

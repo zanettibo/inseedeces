@@ -40,6 +40,8 @@ services:
       - CELERY_BROKER_URL=redis://redis:6379/0
       - MEILISEARCH_URL=http://meilisearch:7700
       - MEILISEARCH_API_KEY=masterKey_inseedeces_secret
+      - SENTRY_DSN=${SENTRY_DSN:-}
+      - SENTRY_ENVIRONMENT=${SENTRY_ENVIRONMENT:-development}
       - DEBUG=True
       - ALLOWED_HOSTS=localhost,127.0.0.1,0.0.0.0
     depends_on:
@@ -56,6 +58,8 @@ services:
       - CELERY_BROKER_URL=redis://redis:6379/0
       - MEILISEARCH_URL=http://meilisearch:7700
       - MEILISEARCH_API_KEY=masterKey_inseedeces_secret
+      - SENTRY_DSN=${SENTRY_DSN:-}
+      - SENTRY_ENVIRONMENT=${SENTRY_ENVIRONMENT:-development}
       - DEBUG=True
       - ALLOWED_HOSTS=localhost,127.0.0.1,0.0.0.0
     depends_on:
