@@ -114,8 +114,8 @@ def import_data(request):
                 'message': 'Import lancé. Les fichiers CSV non déjà importés seront traités.'
             })
 
-        except Exception as e:
-            return JsonResponse({'error': str(e)}, status=500)
+        except Exception:
+            return JsonResponse({'error': 'Erreur interne, veuillez réessayer.'}, status=500)
 
     imports = ImportHistory.objects.all().order_by('-csv_filename')
     stats = ImportHistory.objects.filter(status__in=['completed', 'processing']).aggregate(
