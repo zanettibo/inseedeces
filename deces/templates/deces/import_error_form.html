@@ -1,4 +1,5 @@
 {% extends "deces/base.html" %}
+{% load static %}
 
 {% block title %}Correction #{{ object.id }} — INSEE Décès{% endblock %}
 
@@ -59,11 +60,5 @@
 {% endblock %}
 
 {% block extra_js %}
-<script>
-document.addEventListener('DOMContentLoaded', function() {
-  document.querySelectorAll('form input:not([type=hidden]):not([type=submit]), form select, form textarea').forEach(el => {
-    el.classList.add('form-control');
-  });
-});
-</script>
+<script src="{% static 'deces/js/import-error-form.js' %}"></script>
 {% endblock %}

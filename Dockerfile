@@ -2,7 +2,7 @@ FROM python:3-slim
 
 ENV PYTHONUNBUFFERED=1
 ENV PYTHONDONTWRITEBYTECODE=1
-ENV DEBUG=True
+ENV DEBUG=False
 
 WORKDIR /app
 
@@ -24,7 +24,8 @@ COPY . .
 # Création des dossiers statiques
 RUN mkdir -p static staticfiles
 
-# Collecte des fichiers statiques
+# Collecte des fichiers statiques (clé factice — uniquement pour collectstatic, pas dans l'image finale)
+ARG DJANGO_SECRET_KEY=build-time-key-not-for-production
 RUN python manage.py collectstatic --noinput
 
 # Exposition du port
@@ -34,7 +35,6 @@ EXPOSE 8000
 COPY docker-entrypoint*.sh /usr/local/bin/
 RUN chmod +x /usr/local/bin/docker-entrypoint*.sh
 
-ENV DEBUG=False
 # Entrypoint par défaut
 ENTRYPOINT ["/usr/local/bin/docker-entrypoint.sh"]
 
