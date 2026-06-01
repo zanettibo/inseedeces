@@ -200,6 +200,13 @@ LANGUAGE_CODE = 'en-us'
 TIME_ZONE = 'Europe/Paris'
 
 # Celery Configuration
+COG_URLS = {
+    'regions':      os.getenv('COG_URL_REGIONS',      'https://www.insee.fr/fr/statistiques/fichier/6800675/v_region_2024.csv'),
+    'departements': os.getenv('COG_URL_DEPARTEMENTS',  'https://www.insee.fr/fr/statistiques/fichier/6800675/v_departement_2024.csv'),
+    'communes':     os.getenv('COG_URL_COMMUNES',      'https://www.insee.fr/fr/statistiques/fichier/6800675/v_commune_2024.csv'),
+    'pays':         os.getenv('COG_URL_PAYS',          'https://www.insee.fr/fr/statistiques/fichier/2028273/pays2024.csv'),
+}
+
 MEILISEARCH_URL = os.getenv('MEILISEARCH_URL', 'http://meilisearch:7700')
 MEILISEARCH_API_KEY = os.getenv('MEILISEARCH_API_KEY', 'masterKey_inseedeces_secret')
 
