@@ -146,16 +146,6 @@ def parse_row(row, no_error=False, commune_info=None, pays_map=None):
     return result
 
 
-def clean_previous_import(csv_filename, md5_hash):
-    try:
-        ImportHistory.objects.filter(csv_filename=csv_filename, md5_hash=md5_hash).delete()
-        logger.info(f'Historique d\'import supprimé pour {csv_filename} (MD5: {md5_hash})')
-        return True
-    except Exception as e:
-        logger.error(f'Erreur lors du nettoyage des données : {str(e)}')
-        return False
-
-
 def _flush_batch(deces_batch, commune_info, pays_map):
     Deces.objects.bulk_create(deces_batch, update_conflicts=True, update_fields=[
         'lieu_naissance', 'lieu_naissance_nom',
@@ -290,13 +280,13 @@ def process_insee_file(self, zip_url, zip_filename):
                 import_history.save()
 
                 with zip_ref.open(csv_file) as f:
-                    df = pd.read_csv(f, sep=';', dtype=str)
-                    records = len(df)
-                    import_history.total_records = records
-                    import_history.status = 'processing'
-                    import_history.save()
-                    logger.info(f'Nombre total d\'enregistrements à traiter : {records}')
-                    f.seek(0)
+                    records = sum(1 for _ in f) - 1  # subtract header
+                import_history.total_records = records
+                import_history.status = 'processing'
+                import_history.save()
+                logger.info(f'Nombre total d\'enregistrements à traiter : {records}')
+
+                with zip_ref.open(csv_file) as f:
                     chunks = pd.read_csv(f, sep=';', dtype=str, chunksize=CHUNK_SIZE)
 
                     def pandas_iter():
