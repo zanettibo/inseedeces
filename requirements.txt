@@ -10,7 +10,7 @@ mysqlclient>=2.2.1
 gunicorn>=21.2.0
 whitenoise>=6.12.0
 django-redis>=5.4.0  # For caching
-sqlparse>=0.5.4 # not directly required, pinned by Snyk to avoid a vulnerability
+sqlparse>=0.5.5 # not directly required, pinned by Snyk to avoid a vulnerability
 zipp>=3.19.1 # not directly required, pinned by Snyk to avoid a vulnerability
 
 meilisearch>=0.31.0
