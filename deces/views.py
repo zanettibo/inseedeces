@@ -739,6 +739,15 @@ def _build_db_queryset(get_params):
     return qs
 
 
+_NLP_FILTER_KEYS = [
+    'nom', 'prenoms', 'sexe', 'nom_flexible', 'prenoms_flexible',
+    'date_naissance_debut', 'date_naissance_fin',
+    'date_deces_debut', 'date_deces_fin',
+    'lieu_naissance', 'lieu_naissance_type',
+    'lieu_deces', 'lieu_deces_type',
+]
+
+
 @login_required
 @require_http_methods(['POST'])
 def nlp_search(request):
@@ -748,8 +757,14 @@ def nlp_search(request):
         return redirect('deces:search')
     try:
         from .nlp_search import build_search_params
-        params, _ = build_search_params(query)
-        return redirect(f"{reverse('deces:search')}?{urlencode(params)}")
+        current_params = {
+            key: request.POST[f'current_{key}']
+            for key in _NLP_FILTER_KEYS
+            if request.POST.get(f'current_{key}', '').strip()
+        }
+        new_params, _ = build_search_params(query)
+        merged = {**current_params, **new_params}
+        return redirect(f"{reverse('deces:search')}?{urlencode(merged)}")
     except Exception as e:
         logger.warning(f"NLP search failed: {e}")
         messages.error(request, "Analyse impossible, veuillez réessayer ou affiner votre recherche.")

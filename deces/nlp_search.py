@@ -20,8 +20,17 @@ Champs à extraire:
 - "date_deces_fin": date ISO YYYY-MM-DD fin de fourchette de décès (null si absent)
 - "lieu_naissance_nom": nom du lieu de naissance (commune, département, région ou pays) tel quel (null si absent)
 - "lieu_deces_nom": nom du lieu de décès tel quel (null si absent)
-- "nom_flexible": true si le nom semble approximatif/phonétique/incertain, false sinon
-- "prenoms_flexible": true si le prénom est approximatif/partiel, false sinon
+- "nom_flexible": true si le nom semble approximatif/phonétique/incertain OU si l'utilisateur exprime une incertitude sur le nom, false sinon
+- "prenoms_flexible": true si le prénom est approximatif/partiel OU si l'utilisateur exprime une incertitude sur le prénom, false sinon
+
+Règles pour flexible (exemples):
+- "je crois qu'il s'appelle César" → prenoms=CESAR, prenoms_flexible=true (marqueur d'incertitude "je crois")
+- "il s'appelait peut-être Martin" → nom=MARTIN, nom_flexible=true
+- "je pense que son prénom c'est Jean" → prenoms=JEAN, prenoms_flexible=true
+- "il me semble que ça s'écrit Dupond ou Dupont" → nom=DUPOND, nom_flexible=true
+- "ça ressemble à Bernardo" → prenoms=BERNARDO, prenoms_flexible=true
+- "DUPONT" (sans doute exprimé) → nom_flexible=false
+- Marqueurs d'incertitude déclenchant flexible=true: "je crois", "je pense", "peut-être", "il me semble", "je ne suis pas sûr", "ça ressemble à", "quelque chose comme", "environ", "à peu près", "je crois que ça s'écrit"
 
 Règles pour les dates:
 - "né en 1930" → debut=1930-01-01, fin=1930-12-31

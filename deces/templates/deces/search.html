@@ -45,12 +45,12 @@
         <div class="d-flex gap-2">
           <input type="text" name="query" id="nlp-input" class="form-control"
                  placeholder='Ex : "DUPOND né entre 1925 et 1927 mort dans l&apos;Hérault"'
-                 style="font-size:14px;">
+                 style="font-size:14px;" autocomplete="off">
           <button type="submit" class="btn btn-primary text-nowrap" id="nlp-btn" style="min-width:100px;">
             <i class="bi bi-arrow-right me-1"></i>Analyser
           </button>
         </div>
-        <div style="font-size:11.5px;color:var(--t4);margin-top:6px;">
+        <div style="font-size:11.5px;color:var(--t4);margin-top:6px;" id="nlp-hint">
           Décrit ta recherche en français, l'IA extrait les critères automatiquement.
         </div>
       </form>
@@ -237,7 +237,35 @@
 <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
 <script>
+const NLP_FILTER_KEYS = ['nom','prenoms','sexe','nom_flexible','prenoms_flexible',
+  'date_naissance_debut','date_naissance_fin','date_deces_debut','date_deces_fin',
+  'lieu_naissance','lieu_naissance_type','lieu_deces','lieu_deces_type'];
+
+(function() {
+  const urlParams = new URLSearchParams(window.location.search);
+  const activeFilters = NLP_FILTER_KEYS.filter(k => urlParams.get(k));
+  if (activeFilters.length > 0) {
+    document.getElementById('nlp-input').placeholder = 'Affiner la recherche… ex : "il est mort en 2005"';
+    document.getElementById('nlp-hint').innerHTML =
+      '<i class="bi bi-funnel-fill me-1" style="color:#a5b4fc;"></i>' +
+      '<strong style="color:var(--t2);">' + activeFilters.length + ' filtre' + (activeFilters.length > 1 ? 's' : '') + ' actif' + (activeFilters.length > 1 ? 's' : '') + '</strong>' +
+      ' — l\'IA complète les critères existants. ' +
+      '<a href="{% url "deces:search" %}" style="color:#a5b4fc;">Réinitialiser</a> pour repartir de zéro.';
+  }
+})();
+
 document.getElementById('nlp-form').addEventListener('submit', function() {
+  const urlParams = new URLSearchParams(window.location.search);
+  NLP_FILTER_KEYS.forEach(function(key) {
+    const val = urlParams.get(key);
+    if (val) {
+      const inp = document.createElement('input');
+      inp.type = 'hidden';
+      inp.name = 'current_' + key;
+      inp.value = val;
+      document.getElementById('nlp-form').appendChild(inp);
+    }
+  });
   const btn = document.getElementById('nlp-btn');
   btn.disabled = true;
   btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Analyse…';
