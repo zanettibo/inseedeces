@@ -2,10 +2,10 @@ services:
   db:
     image: mariadb:10.11
     environment:
-      MYSQL_ROOT_PASSWORD: rootpassword
-      MYSQL_DATABASE: insee_deces
-      MYSQL_USER: insee
-      MYSQL_PASSWORD: insee_password
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-rootpassword}
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-insee_deces}
+      MYSQL_USER: ${MYSQL_USER:-insee}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-insee_password}
     volumes:
       - db_data:/var/lib/mysql
 
@@ -19,17 +19,17 @@ services:
     volumes:
       - meili_data:/meili_data
     environment:
-      MEILI_MASTER_KEY: "masterKey_inseedeces_secret"
+      MEILI_MASTER_KEY: ${MEILISEARCH_MASTER_KEY:-masterKey_inseedeces_secret}
 
   migrate:
     build: .
     entrypoint: /usr/local/bin/docker-entrypoint-migrate.sh
     command: echo "Migrations terminées"
     environment:
-      - DATABASE_URL=mysql://insee:insee_password@db:3306/insee_deces
+      - DATABASE_URL=mysql://${MYSQL_USER:-insee}:${MYSQL_PASSWORD:-insee_password}@db:3306/${MYSQL_DATABASE:-insee_deces}
       - MEILISEARCH_URL=http://meilisearch:7700
       - MEILISEARCH_API_KEY=${MEILISEARCH_API_KEY:-masterKey_inseedeces_secret}
-      - DEBUG=True
+      - DEBUG=${DEBUG:-False}
     depends_on:
       - db
       - meilisearch
@@ -39,14 +39,14 @@ services:
     ports:
       - "8000:8000"
     environment:
-      - DATABASE_URL=mysql://insee:insee_password@db:3306/insee_deces
+      - DATABASE_URL=mysql://${MYSQL_USER:-insee}:${MYSQL_PASSWORD:-insee_password}@db:3306/${MYSQL_DATABASE:-insee_deces}
       - CELERY_BROKER_URL=redis://redis:6379/0
       - MEILISEARCH_URL=http://meilisearch:7700
-      - MEILISEARCH_API_KEY=masterKey_inseedeces_secret
+      - MEILISEARCH_API_KEY=${MEILISEARCH_API_KEY:-masterKey_inseedeces_secret}
       - SENTRY_DSN=${SENTRY_DSN:-}
       - SENTRY_ENVIRONMENT=${SENTRY_ENVIRONMENT:-development}
       - GEMINI_API_KEY=${GEMINI_API_KEY:-}
-      - DEBUG=True
+      - DEBUG=${DEBUG:-False}
       - ALLOWED_HOSTS=localhost,127.0.0.1,0.0.0.0
     depends_on:
       - db
@@ -58,13 +58,13 @@ services:
     build: .
     command: celery -A insee_deces worker --loglevel=info
     environment:
-      - DATABASE_URL=mysql://insee:insee_password@db:3306/insee_deces
+      - DATABASE_URL=mysql://${MYSQL_USER:-insee}:${MYSQL_PASSWORD:-insee_password}@db:3306/${MYSQL_DATABASE:-insee_deces}
       - CELERY_BROKER_URL=redis://redis:6379/0
       - MEILISEARCH_URL=http://meilisearch:7700
-      - MEILISEARCH_API_KEY=masterKey_inseedeces_secret
+      - MEILISEARCH_API_KEY=${MEILISEARCH_API_KEY:-masterKey_inseedeces_secret}
       - SENTRY_DSN=${SENTRY_DSN:-}
       - SENTRY_ENVIRONMENT=${SENTRY_ENVIRONMENT:-development}
-      - DEBUG=True
+      - DEBUG=${DEBUG:-False}
       - ALLOWED_HOSTS=localhost,127.0.0.1,0.0.0.0
     depends_on:
       - web

@@ -287,35 +287,24 @@ def autocomplete_lieu(request):
     # Calculer l'offset pour la pagination
     offset = (page - 1) * page_size
 
-    # Rechercher dans les communes
-    communes = Commune.objects.filter(
-        Q(libelle__icontains=query) | 
-        Q(ncc__icontains=query)
-    ).select_related('dep', 'reg')[offset:offset + page_size]
+    commune_qs = Commune.objects.filter(
+        Q(libelle__icontains=query) | Q(ncc__icontains=query)
+    ).select_related('dep', 'reg')
+    communes_page = list(commune_qs[offset:offset + page_size + 1])
+    has_more = len(communes_page) > page_size
+    communes = communes_page[:page_size]
 
-    # Vérifier s'il y a plus de résultats
-    has_more = Commune.objects.filter(
-        Q(libelle__icontains=query) | 
-        Q(ncc__icontains=query)
-    ).count() > offset + page_size
-
-    # Rechercher dans les départements
     departements = Departement.objects.filter(
-        Q(libelle__icontains=query) | 
-        Q(ncc__icontains=query)
-    ).select_related('reg')
+        Q(libelle__icontains=query) | Q(ncc__icontains=query)
+    ).select_related('reg')[:50]
 
-    # Rechercher dans les régions
     regions = Region.objects.filter(
-        Q(libelle__icontains=query) | 
-        Q(ncc__icontains=query)
-    )
+        Q(libelle__icontains=query) | Q(ncc__icontains=query)
+    )[:20]
 
-    # Rechercher dans les pays
     pays = Pays.objects.filter(
-        Q(libcog__icontains=query) | 
-        Q(libenr__icontains=query)
-    )
+        Q(libcog__icontains=query) | Q(libenr__icontains=query)
+    )[:50]
 
     results = []
     
@@ -763,7 +752,7 @@ def nlp_search(request):
         return redirect(f"{reverse('deces:search')}?{urlencode(params)}")
     except Exception as e:
         logger.warning(f"NLP search failed: {e}")
-        messages.error(request, f"Analyse impossible : {e}")
+        messages.error(request, "Analyse impossible, veuillez réessayer ou affiner votre recherche.")
         return redirect('deces:search')
 
 

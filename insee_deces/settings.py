@@ -210,7 +210,7 @@ COG_URLS = {
 }
 
 MEILISEARCH_URL = os.getenv('MEILISEARCH_URL', 'http://meilisearch:7700')
-MEILISEARCH_API_KEY = os.getenv('MEILISEARCH_API_KEY', 'masterKey_inseedeces_secret')
+MEILISEARCH_API_KEY = os.getenv('MEILISEARCH_API_KEY') or 'masterKey_inseedeces_secret'
 
 SENTRY_DSN = os.getenv('SENTRY_DSN', '')
 if SENTRY_DSN:
