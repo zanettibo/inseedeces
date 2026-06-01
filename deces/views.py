@@ -777,6 +777,46 @@ def export_search(request):
     return response
 
 
+@login_required
+@require_http_methods(['POST'])
+def bulk_error_action(request):
+    if not request.user.is_superuser:
+        return JsonResponse({'error': 'forbidden'}, status=403)
+
+    action = request.POST.get('action')
+    ids = request.POST.getlist('error_ids')
+    if not ids:
+        messages.warning(request, 'Aucune erreur sélectionnée.')
+        return redirect(request.POST.get('next', 'deces:import-error-list'))
+
+    errors = DecesImportError.objects.filter(pk__in=ids, resolved=False)
+
+    if action == 'resolve':
+        from django.utils import timezone
+        count = errors.update(resolved=True, resolution_date=timezone.now())
+        messages.success(request, f'{count} erreur(s) marquée(s) comme résolue(s).')
+
+    elif action == 'retry':
+        ok = ko = 0
+        for error in errors:
+            success, _ = error.retry_import()
+            if success:
+                ok += 1
+            else:
+                ko += 1
+        if ok:
+            messages.success(request, f'{ok} erreur(s) réimportée(s) avec succès.')
+        if ko:
+            messages.warning(request, f'{ko} erreur(s) non réimportée(s) (données incomplètes).')
+    else:
+        messages.error(request, 'Action inconnue.')
+
+    next_url = request.POST.get('next', '')
+    if next_url:
+        return redirect(next_url)
+    return redirect('deces:import-error-list')
+
+
 class ImportErrorListView(LoginRequiredMixin, ListView):
     def dispatch(self, request, *args, **kwargs):
         if not request.user.is_superuser:

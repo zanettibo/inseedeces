@@ -2,86 +2,117 @@
 
 {% block content %}
 <div class="container mt-4">
-    <h1>Gestion des erreurs d'import</h1>
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h1 class="mb-0">Erreurs d'import</h1>
+        <span class="text-muted">{{ page_obj.paginator.count }} erreur{{ page_obj.paginator.count|pluralize }}</span>
+    </div>
 
-    <div class="card mb-4">
-        <div class="card-body">
-            <form method="get" class="row g-3">
+    <!-- Filtres -->
+    <div class="card mb-3">
+        <div class="card-body py-2">
+            <form method="get" class="row g-2 align-items-end">
                 <div class="col-md-4">
-                    <label for="status" class="form-label">Statut</label>
-                    <select name="status" id="status" class="form-select">
-                        <option value="">Tous</option>
+                    <select name="status" class="form-select form-select-sm">
+                        <option value="">Tous les statuts</option>
                         <option value="unresolved" {% if status == 'unresolved' %}selected{% endif %}>Non résolus</option>
                         <option value="resolved" {% if status == 'resolved' %}selected{% endif %}>Résolus</option>
                     </select>
                 </div>
-                <div class="col-md-4">
-                    <label for="import_id" class="form-label">Import</label>
-                    <select name="import_id" id="import_id" class="form-select">
-                        <option value="">Tous</option>
-                        {% for import in imports %}
-                        <option value="{{ import.id }}" {% if import_id == import.id|stringformat:"s" %}selected{% endif %}>
-                            {{ import.csv_filename }}
+                <div class="col-md-5">
+                    <select name="import_id" class="form-select form-select-sm">
+                        <option value="">Tous les imports</option>
+                        {% for imp in imports %}
+                        <option value="{{ imp.id }}" {% if import_id == imp.id|stringformat:"s" %}selected{% endif %}>
+                            {{ imp.csv_filename }}
                         </option>
                         {% endfor %}
                     </select>
                 </div>
-                <div class="col-md-4 d-flex align-items-end">
-                    <button type="submit" class="btn btn-primary">Filtrer</button>
+                <div class="col-md-3">
+                    <button type="submit" class="btn btn-sm btn-primary w-100">Filtrer</button>
                 </div>
             </form>
         </div>
     </div>
 
-    <div class="table-responsive">
-        <table class="table table-striped">
-            <thead>
-                <tr>
-                    <th>ID</th>
-                    <th>Import</th>
-                    <th>Message d'erreur</th>
-                    <th>Date de création</th>
-                    <th>Statut</th>
-                    <th>Actions</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for error in errors %}
-                <tr>
-                    <td>{{ error.id }}</td>
-                    <td>{{ error.import_history.csv_filename }}</td>
-                    <td>{{ error.error_message|truncatechars:100 }}</td>
-                    <td>{{ error.created_at|date:"d/m/Y H:i" }}</td>
-                    <td>
-                        {% if error.resolved %}
-                        <span class="badge bg-success">Résolu</span>
-                        {% else %}
-                        <span class="badge bg-warning">Non résolu</span>
-                        {% endif %}
-                    </td>
-                    <td>
-                        <a href="{% url 'deces:import-error-detail' error.pk %}" class="btn btn-sm btn-info">
-                            Détails
-                        </a>
-                        {% if not error.resolved %}
-                        <a href="{% url 'deces:import-error-update' error.pk %}" class="btn btn-sm btn-primary">
-                            Corriger
-                        </a>
-                        {% endif %}
-                    </td>
-                </tr>
-                {% empty %}
-                <tr>
-                    <td colspan="6" class="text-center">Aucune erreur d'import trouvée.</td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
-    </div>
+    <!-- Formulaire bulk -->
+    <form method="post" action="{% url 'deces:import-error-bulk' %}" id="bulk-form">
+        {% csrf_token %}
+        <input type="hidden" name="next" value="{{ request.get_full_path }}">
 
+        <!-- Barre d'actions bulk (visible si sélection) -->
+        <div class="d-flex align-items-center gap-2 mb-2" id="bulk-bar" style="min-height:38px;">
+            <span class="text-muted small" id="selection-count">0 sélectionné(s)</span>
+            <button type="submit" name="action" value="resolve"
+                    class="btn btn-sm btn-success" id="btn-resolve" disabled>
+                <i class="bi bi-check-circle"></i> Marquer résolus
+            </button>
+            <button type="submit" name="action" value="retry"
+                    class="btn btn-sm btn-warning" id="btn-retry" disabled>
+                <i class="bi bi-arrow-clockwise"></i> Réessayer
+            </button>
+            <button type="button" class="btn btn-sm btn-outline-secondary ms-auto" id="btn-select-all">
+                Tout sélectionner
+            </button>
+        </div>
+
+        <!-- Table -->
+        <div class="table-responsive">
+            <table class="table table-striped table-sm">
+                <thead>
+                    <tr>
+                        <th style="width:40px">
+                            <input type="checkbox" id="check-all" class="form-check-input">
+                        </th>
+                        <th>Import</th>
+                        <th>Message d'erreur</th>
+                        <th>Date</th>
+                        <th>Statut</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for error in errors %}
+                    <tr>
+                        <td>
+                            {% if not error.resolved %}
+                            <input type="checkbox" name="error_ids" value="{{ error.pk }}"
+                                   class="form-check-input error-checkbox">
+                            {% endif %}
+                        </td>
+                        <td><small>{{ error.import_history.csv_filename }}</small></td>
+                        <td><small class="text-danger">{{ error.error_message|truncatechars:120 }}</small></td>
+                        <td><small>{{ error.created_at|date:"d/m/Y H:i" }}</small></td>
+                        <td>
+                            {% if error.resolved %}
+                            <span class="badge bg-success">Résolu</span>
+                            {% else %}
+                            <span class="badge bg-warning text-dark">En attente</span>
+                            {% endif %}
+                        </td>
+                        <td class="text-nowrap">
+                            <a href="{% url 'deces:import-error-detail' error.pk %}"
+                               class="btn btn-xs btn-outline-info btn-sm py-0 px-1">Détails</a>
+                            {% if not error.resolved %}
+                            <a href="{% url 'deces:import-error-update' error.pk %}"
+                               class="btn btn-xs btn-outline-primary btn-sm py-0 px-1">Corriger</a>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="6" class="text-center text-muted py-4">Aucune erreur trouvée.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </form>
+
+    <!-- Pagination -->
     {% if is_paginated %}
-    <nav aria-label="Pagination">
-        <ul class="pagination justify-content-center">
+    <nav>
+        <ul class="pagination pagination-sm justify-content-center">
             {% if page_obj.has_previous %}
             <li class="page-item">
                 <a class="page-link" href="?page=1{% if status %}&status={{ status }}{% endif %}{% if import_id %}&import_id={{ import_id }}{% endif %}">«</a>
@@ -90,11 +121,9 @@
                 <a class="page-link" href="?page={{ page_obj.previous_page_number }}{% if status %}&status={{ status }}{% endif %}{% if import_id %}&import_id={{ import_id }}{% endif %}">‹</a>
             </li>
             {% endif %}
-
             <li class="page-item active">
-                <span class="page-link">Page {{ page_obj.number }} sur {{ page_obj.paginator.num_pages }}</span>
+                <span class="page-link">{{ page_obj.number }} / {{ page_obj.paginator.num_pages }}</span>
             </li>
-
             {% if page_obj.has_next %}
             <li class="page-item">
                 <a class="page-link" href="?page={{ page_obj.next_page_number }}{% if status %}&status={{ status }}{% endif %}{% if import_id %}&import_id={{ import_id }}{% endif %}">›</a>
@@ -107,4 +136,33 @@
     </nav>
     {% endif %}
 </div>
+
+<script>
+const checkboxes = () => document.querySelectorAll('.error-checkbox');
+const btnResolve = document.getElementById('btn-resolve');
+const btnRetry   = document.getElementById('btn-retry');
+const countLabel = document.getElementById('selection-count');
+
+function updateBar() {
+    const checked = [...checkboxes()].filter(c => c.checked).length;
+    countLabel.textContent = checked + ' sélectionné(s)';
+    btnResolve.disabled = checked === 0;
+    btnRetry.disabled   = checked === 0;
+}
+
+document.getElementById('check-all').addEventListener('change', function() {
+    checkboxes().forEach(c => c.checked = this.checked);
+    updateBar();
+});
+
+document.getElementById('btn-select-all').addEventListener('click', function() {
+    checkboxes().forEach(c => c.checked = true);
+    document.getElementById('check-all').checked = true;
+    updateBar();
+});
+
+document.querySelectorAll('.error-checkbox').forEach(c =>
+    c.addEventListener('change', updateBar)
+);
+</script>
 {% endblock %}

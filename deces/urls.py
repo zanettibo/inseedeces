@@ -17,6 +17,7 @@ urlpatterns = [
     
     # URLs pour la gestion des erreurs d'import
     path('import/errors/', views.ImportErrorListView.as_view(), name='import-error-list'),
+    path('import/errors/bulk/', views.bulk_error_action, name='import-error-bulk'),
     path('import/errors/<int:pk>/', views.ImportErrorDetailView.as_view(), name='import-error-detail'),
     path('import/errors/<int:pk>/update/', views.ImportErrorUpdateView.as_view(), name='import-error-update'),
     path('import/errors/<int:pk>/retry/', views.retry_import_error, name='retry-import-error'),
