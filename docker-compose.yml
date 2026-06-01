@@ -27,9 +27,12 @@ services:
     command: echo "Migrations terminées"
     environment:
       - DATABASE_URL=mysql://insee:insee_password@db:3306/insee_deces
+      - MEILISEARCH_URL=http://meilisearch:7700
+      - MEILISEARCH_API_KEY=${MEILISEARCH_API_KEY:-masterKey_inseedeces_secret}
       - DEBUG=True
     depends_on:
       - db
+      - meilisearch
 
   web:
     build: .
@@ -42,6 +45,7 @@ services:
       - MEILISEARCH_API_KEY=masterKey_inseedeces_secret
       - SENTRY_DSN=${SENTRY_DSN:-}
       - SENTRY_ENVIRONMENT=${SENTRY_ENVIRONMENT:-development}
+      - GEMINI_API_KEY=${GEMINI_API_KEY:-}
       - DEBUG=True
       - ALLOWED_HOSTS=localhost,127.0.0.1,0.0.0.0
     depends_on:

@@ -11,6 +11,7 @@ urlpatterns = [
     path('import/<int:import_id>/stream/', views.import_status_stream, name='import_status_stream'),
     path('import/stats/', views.import_stats, name='import_stats'),
     path('search/', views.search, name='search'),
+    path('search/nlp/', views.nlp_search, name='nlp_search'),
     path('dashboard/', views.dashboard, name='dashboard'),
     path('dashboard/stats/', views.dashboard_stats, name='dashboard_stats'),
     path('search/export/', views.export_search, name='export_search'),

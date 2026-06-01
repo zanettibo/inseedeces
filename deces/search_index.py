@@ -36,6 +36,9 @@ def setup_index():
             'enabled': True,
             'minWordSizeForTypos': {'oneTypo': 4, 'twoTypos': 8},
         },
+        'pagination': {
+            'maxTotalHits': 50000,
+        },
     })
     return index
 
@@ -180,10 +183,17 @@ def search(
         'date_deces': 'date_deces_ts',
     }
 
+    attrs_to_search = []
+    if nom_flexible and nom:
+        attrs_to_search.append('nom')
+    if prenoms_flexible and prenoms:
+        attrs_to_search.append('prenoms')
+
     params = {
         'limit': page_size,
         'offset': (page - 1) * page_size,
         'attributesToRetrieve': ['pk_date_deces', 'pk_lieu_deces', 'pk_acte_deces'],
+        'attributesToSearchOn': attrs_to_search if attrs_to_search else ['nom', 'prenoms'],
     }
     if filters:
         params['filter'] = filters

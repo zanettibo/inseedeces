@@ -1,6 +1,9 @@
 import math
+import logging
 from functools import reduce
 from datetime import date as date_type
+
+logger = logging.getLogger(__name__)
 
 from django.db.models import Sum, Q
 from django.http import JsonResponse
@@ -14,6 +17,7 @@ from django.core.paginator import Paginator
 from django.views.decorators.http import require_http_methods
 from django.views.decorators.cache import cache_page
 from django.core.cache import cache
+from django.urls import reverse
 
 from .models import Deces, Commune, Region, Departement, Pays, ImportHistory, DecesImportError
 from .tasks import process_insee_file
@@ -678,6 +682,22 @@ def _build_db_queryset(get_params):
 
 
 @login_required
+@require_http_methods(['POST'])
+def nlp_search(request):
+    from urllib.parse import urlencode
+    query = request.POST.get('query', '').strip()
+    if not query:
+        return redirect('deces:search')
+    try:
+        from .nlp_search import build_search_params
+        params, _ = build_search_params(query)
+        return redirect(f"{reverse('deces:search')}?{urlencode(params)}")
+    except Exception as e:
+        logger.warning(f"NLP search failed: {e}")
+        messages.error(request, f"Analyse impossible : {e}")
+        return redirect('deces:search')
+
+
 def dashboard(request):
     if not request.user.is_staff:
         return redirect('deces:index')

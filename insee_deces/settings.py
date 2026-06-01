@@ -200,6 +200,8 @@ LANGUAGE_CODE = 'en-us'
 TIME_ZONE = 'Europe/Paris'
 
 # Celery Configuration
+GEMINI_API_KEY = os.getenv('GEMINI_API_KEY', '')
+
 COG_URLS = {
     'regions':      os.getenv('COG_URL_REGIONS',      'https://www.insee.fr/fr/statistiques/fichier/6800675/v_region_2024.csv'),
     'departements': os.getenv('COG_URL_DEPARTEMENTS',  'https://www.insee.fr/fr/statistiques/fichier/6800675/v_departement_2024.csv'),

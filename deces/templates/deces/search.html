@@ -33,6 +33,29 @@
 </div>
 
 <div class="page-body">
+  <!-- Barre de recherche naturelle -->
+  <div class="card mb-3" style="border-color:rgba(99,102,241,.25);background:rgba(99,102,241,.06);">
+    <div class="card-body" style="padding:14px 16px;">
+      <form method="post" action="{% url 'deces:nlp_search' %}" id="nlp-form">
+        {% csrf_token %}
+        <div style="font-size:11px;color:#a5b4fc;text-transform:uppercase;letter-spacing:.06em;font-weight:600;margin-bottom:8px;">
+          <i class="bi bi-stars me-1"></i>Recherche naturelle (IA)
+        </div>
+        <div class="d-flex gap-2">
+          <input type="text" name="query" id="nlp-input" class="form-control"
+                 placeholder='Ex : "DUPOND né entre 1925 et 1927 mort dans l&apos;Hérault"'
+                 style="font-size:14px;">
+          <button type="submit" class="btn btn-primary text-nowrap" id="nlp-btn" style="min-width:100px;">
+            <i class="bi bi-arrow-right me-1"></i>Analyser
+          </button>
+        </div>
+        <div style="font-size:11.5px;color:var(--t4);margin-top:6px;">
+          Décrit ta recherche en français, l'IA extrait les critères automatiquement.
+        </div>
+      </form>
+    </div>
+  </div>
+
   <div class="filter-panel">
     <form method="get" id="search-form">
       <div class="filter-row mb-3">
@@ -67,9 +90,9 @@
         <div class="filter-field wide">
           <label>Date de naissance</label>
           <div class="date-range">
-            <input type="date" name="date_naissance_debut" class="form-control" value="{{ date_naissance_debut|date:'Y-m-d' }}">
+            <input type="date" name="date_naissance_debut" class="form-control" value="{{ date_naissance_debut }}">
             <span>→</span>
-            <input type="date" name="date_naissance_fin" class="form-control" value="{{ date_naissance_fin|date:'Y-m-d' }}">
+            <input type="date" name="date_naissance_fin" class="form-control" value="{{ date_naissance_fin }}">
           </div>
         </div>
         <div class="filter-field wide">
@@ -87,9 +110,9 @@
         <div class="filter-field wide">
           <label>Date de décès</label>
           <div class="date-range">
-            <input type="date" name="date_deces_debut" class="form-control" value="{{ date_deces_debut|date:'Y-m-d' }}">
+            <input type="date" name="date_deces_debut" class="form-control" value="{{ date_deces_debut }}">
             <span>→</span>
-            <input type="date" name="date_deces_fin" class="form-control" value="{{ date_deces_fin|date:'Y-m-d' }}">
+            <input type="date" name="date_deces_fin" class="form-control" value="{{ date_deces_fin }}">
           </div>
         </div>
         <div class="filter-field wide">
@@ -212,6 +235,12 @@
 <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
 <script>
+document.getElementById('nlp-form').addEventListener('submit', function() {
+  const btn = document.getElementById('nlp-btn');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Analyse…';
+});
+
 function setupFlexibleInput(inputId, flexId) {
   const inp = document.getElementById(inputId);
   const chk = document.getElementById(flexId);
