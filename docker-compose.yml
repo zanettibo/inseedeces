@@ -14,8 +14,6 @@ services:
 
   meilisearch:
     image: getmeili/meilisearch:v1.6
-    ports:
-      - "7700:7700"
     volumes:
       - meili_data:/meili_data
     environment:
