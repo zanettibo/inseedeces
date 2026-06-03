@@ -1,7 +1,7 @@
 Django>=5.0.14
 requests>=2.32.4
 python-dotenv>=1.0.1
-pandas>=2.2.0
+pandas>=3.0.3
 celery>=5.3.6
 redis>=5.0.1
 django-celery-results>=2.5.1
